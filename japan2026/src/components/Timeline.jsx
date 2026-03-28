@@ -534,7 +534,7 @@ export default function TimelineSection() {
                                 />
                               </div>
                             </Group>
-                            <Group gap={6}>
+                            <Group gap={6} wrap="nowrap">
                               <Text size="xs" fw={500} c="dimmed">Rating:</Text>
                               <SegmentedControl
                                 size="xs"
@@ -550,16 +550,6 @@ export default function TimelineSection() {
                                   { label: '3.6+', value: '3.6' },
                                 ]}
                               />
-                            </Group>
-                            <Group gap="xs" justify="space-between" wrap="nowrap">
-                              <Switch
-                                size="xs"
-                                label="Japanese only"
-                                checked={japaneseOnly}
-                                onChange={(e) => { setJapaneseOnly(e.currentTarget.checked); setShowAllTabelog(false); }}
-                                color="red"
-                                styles={{ label: { fontSize: 11, color: '#9ca3af', paddingLeft: 4 }, root: { flexShrink: 0 } }}
-                              />
                               {(maxPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly) && (
                                 <Button
                                   variant="subtle"
@@ -572,16 +562,27 @@ export default function TimelineSection() {
                                 </Button>
                               )}
                             </Group>
+                            <Switch
+                              size="xs"
+                              label="Japanese food only"
+                              checked={japaneseOnly}
+                              onChange={(e) => { setJapaneseOnly(e.currentTarget.checked); setCuisineFilter([]); setShowAllTabelog(false); }}
+                              color="red"
+                              styles={{ label: { fontSize: 11, color: '#9ca3af', paddingLeft: 4 } }}
+                            />
                           </Group>
                           <ScrollArea type="never">
                             <Group gap={4} wrap="nowrap">
                               {(() => {
+                                const nonJapaneseCuisines = ['italian', 'french', 'indian', 'chinese', 'sichuan', 'korean', 'thai', 'vietnamese', 'spanish', 'american', 'peruvian', 'nepalese', 'sri lankan', 'bistro', 'pizza', 'pasta', 'steak'];
                                 const cats = new Map();
                                 tabelogList.forEach(r => {
                                   (r.cuisine || '').split(/[,/]/).forEach(c => {
                                     const t = c.trim();
                                     if (t && t.length > 1) {
                                       const key = t.toLowerCase();
+                                      // Hide non-Japanese tags when toggle is on
+                                      if (japaneseOnly && nonJapaneseCuisines.some(nj => key.includes(nj))) return;
                                       if (!cats.has(key)) cats.set(key, t);
                                     }
                                   });
