@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japan 2026 - Trip Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Hero Section -->
+  <header id="hero">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-badge">Summer 2026</div>
+      <h1>
+        <span class="hero-jp">日本</span>
+        <span class="hero-en">Japan</span>
+      </h1>
+      <p class="hero-dates">July 11 &ndash; July 25 &middot; 15 Days</p>
+      <div class="hero-route">Tokyo &rarr; Osaka &rarr; Kyoto &rarr; Tokyo</div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-number" id="stat-travelers">10</span>
+          <span class="stat-label">Travelers</span>
+        </div>
+        <div class="stat">
+          <span class="stat-number" id="stat-food">90+</span>
+          <span class="stat-label">Restaurants</span>
+        </div>
+        <div class="stat">
+          <span class="stat-number" id="stat-activities">60+</span>
+          <span class="stat-label">Activities</span>
+        </div>
+      </div>
+      <button id="sync-btn" onclick="syncFromSheets()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13.65 2.35A7.95 7.95 0 0 0 8 0C3.58 0 0 3.58 0 8s3.58 8 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 8 14 6 6 0 1 1 8 2c1.66 0 3.14.69 4.22 1.78L9 7h7V0l-2.35 2.35z" fill="currentColor"/>
+        </svg>
+        Sync from Google Sheets
+      </button>
+    </div>
+    <!-- Decorative cherry blossoms -->
+    <svg class="cherry-blossom cb-1" viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="10" r="8" fill="rgba(255,182,193,0.4)"/><circle cx="10" cy="25" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="30" cy="25" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="15" cy="18" r="8" fill="rgba(255,182,193,0.35)"/><circle cx="25" cy="18" r="8" fill="rgba(255,182,193,0.35)"/><circle cx="20" cy="20" r="4" fill="rgba(255,220,180,0.6)"/></svg>
+    <svg class="cherry-blossom cb-2" viewBox="0 0 40 40" width="30" height="30"><circle cx="20" cy="10" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="10" cy="25" r="8" fill="rgba(255,182,193,0.25)"/><circle cx="30" cy="25" r="8" fill="rgba(255,182,193,0.25)"/><circle cx="15" cy="18" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="25" cy="18" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="20" cy="20" r="4" fill="rgba(255,220,180,0.5)"/></svg>
+    <svg class="cherry-blossom cb-3" viewBox="0 0 40 40" width="24" height="24"><circle cx="20" cy="10" r="8" fill="rgba(255,182,193,0.35)"/><circle cx="10" cy="25" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="30" cy="25" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="15" cy="18" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="25" cy="18" r="8" fill="rgba(255,182,193,0.3)"/><circle cx="20" cy="20" r="4" fill="rgba(255,220,180,0.5)"/></svg>
+  </header>
+
+  <!-- Navigation -->
+  <nav id="main-nav">
+    <div class="nav-inner">
+      <a href="#timeline" class="nav-link active" data-section="timeline">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm0 14.4A6.4 6.4 0 1 1 8 1.6a6.4 6.4 0 0 1 0 12.8zM8.4 4H7.2v4.8l4.08 2.448.72-1.056L8.4 8.2V4z"/></svg>
+        Timeline
+      </a>
+      <a href="#food" class="nav-link" data-section="food">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 1v3.5c0 .83-.67 1.5-1.5 1.5S2.5 5.33 2.5 4.5V1H1v3.5C1 6.43 2.57 8 4.5 8v7h2V8c1.93 0 3.5-1.57 3.5-3.5V1h-1.5v3.5c0 .83-.67 1.5-1.5 1.5S5.5 5.33 5.5 4.5V1zM13 1v6h-2v8h2V1z"/></svg>
+        Food
+      </a>
+      <a href="#activities" class="nav-link" data-section="activities">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 5.5 8 10l7-4.5L8 1zM1 10.5l7 4.5 7-4.5-7 4.5-7-4.5z"/></svg>
+        Activities
+      </a>
+      <a href="#planning" class="nav-link" data-section="planning">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 1v10h10V3H3zm2 2h6v1H5V5zm0 2.5h6v1H5v-1zm0 2.5h4v1H5V10z"/></svg>
+        Planning
+      </a>
+      <a href="#group" class="nav-link" data-section="group">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 1c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        Group
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Timeline Section -->
+    <section id="timeline" class="section active">
+      <div class="section-header">
+        <h2>Trip Timeline</h2>
+        <p class="section-subtitle">Day-by-day itinerary</p>
+      </div>
+      <div class="day-selector" id="day-selector"></div>
+      <div class="day-detail" id="day-detail"></div>
+    </section>
+
+    <!-- Food Section -->
+    <section id="food" class="section">
+      <div class="section-header">
+        <h2>Food Menu</h2>
+        <p class="section-subtitle">Curated restaurants and eats across Japan</p>
+      </div>
+      <div class="filters" id="food-filters"></div>
+      <div class="card-grid" id="food-grid"></div>
+    </section>
+
+    <!-- Activities Section -->
+    <section id="activities" class="section">
+      <div class="section-header">
+        <h2>Activities</h2>
+        <p class="section-subtitle">Things to see, do, and explore</p>
+      </div>
+      <div class="filters" id="activity-filters"></div>
+      <div class="card-grid" id="activity-grid"></div>
+    </section>
+
+    <!-- Planning Section -->
+    <section id="planning" class="section">
+      <div class="section-header">
+        <h2>Planning</h2>
+        <p class="section-subtitle">Checklist, links, and notes</p>
+      </div>
+      <div class="planning-grid">
+        <div class="planning-col">
+          <h3>Checklist</h3>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progress-bar"></div>
+            <span class="progress-text" id="progress-text"></span>
+          </div>
+          <div id="task-list" class="task-list"></div>
+        </div>
+        <div class="planning-col">
+          <h3>Useful Links</h3>
+          <div id="links-list" class="links-list"></div>
+          <h3 style="margin-top:2rem;">Notes</h3>
+          <div id="notes-list" class="notes-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Group Section -->
+    <section id="group" class="section">
+      <div class="section-header">
+        <h2>Travel Group</h2>
+        <p class="section-subtitle">The crew heading to Japan</p>
+      </div>
+      <div class="traveler-grid" id="traveler-grid"></div>
+    </section>
+  </main>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast"></div>
+
+  <footer>
+    <p>Japan 2026 Trip Planner &middot; Data synced from <a href="https://docs.google.com/spreadsheets/d/1N_V9v7uKz3hXRQSnVNaaeAJO7vgU-GdnE5Pisln6C1A/edit" target="_blank" rel="noopener">Google Sheets</a></p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
