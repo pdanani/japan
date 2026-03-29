@@ -484,102 +484,117 @@ export default function MapViewComponent() {
           </UnstyledButton>
         )}
 
-        {/* Vertical filter panel */}
+        {/* Filter bottom sheet */}
         {layers.tabelog && showFilters && (
-          <div style={{
-            background: ov.bg, borderRadius: 12, padding: 14, marginTop: 4,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.25)', width: 200,
-            border: `1px solid ${ov.border}`,
-            maxHeight: 'calc(100vh - 280px)', overflowY: 'auto',
-          }}>
-            {/* Close */}
-            <UnstyledButton
+          <>
+            {/* Backdrop */}
+            <div
               onClick={() => setShowFilters(false)}
-              style={{ alignSelf: 'flex-end', marginBottom: 4 }}
-            >
-              <IconX size={18} color={ov.textDim} />
-            </UnstyledButton>
-            {/* Price */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <Text size="xs" fw={700} c="dimmed" tt="uppercase">Price</Text>
-              <Text size="xs" fw={600} c="orange">
-                {maxPrice >= 15000 ? 'Any' : `≤ ¥${(maxPrice / 1000).toFixed(0)}k`}
-              </Text>
-            </div>
-            <div style={{ padding: '0 2px 18px' }}>
-              <Slider
-                value={maxPrice} onChange={setMaxPrice}
-                min={1000} max={15000} step={1000}
-                label={(v) => v >= 15000 ? 'Any' : `¥${(v / 1000).toFixed(0)}k`}
-                color="orange" size="sm"
-                marks={[{ value: 1000, label: '¥1k' }, { value: 6000, label: '¥6k' }, { value: 15000, label: 'Any' }]}
-                styles={{ markLabel: { fontSize: 9 } }}
-              />
-            </div>
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+                zIndex: 999,
+              }}
+            />
+            <div style={{
+              position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
+              background: ov.bg, borderRadius: '16px 16px 0 0',
+              padding: '12px 20px calc(env(safe-area-inset-bottom, 12px) + 12px)',
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.2)',
+              maxHeight: '70vh', overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            }}>
+              {/* Handle bar */}
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: ov.textDim, margin: '0 auto 12px', opacity: 0.4 }} />
 
-            {/* Rating */}
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>Rating</Text>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 12 }}>
-              {['all', '3.9', '3.8', '3.7', '3.6'].map(v => (
-                <UnstyledButton
-                  key={v}
-                  onClick={() => setMinRating(v)}
-                  style={{
-                    padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                    background: minRating === v ? '#ea580c' : 'transparent',
-                    color: minRating === v ? '#fff' : ov.textDim,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {v === 'all' ? 'All ratings' : `${v}+ stars`}
-                </UnstyledButton>
-              ))}
-            </div>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text size="sm" fw={700}>Filter Restaurants</Text>
+                {hasActiveFilters && (
+                  <UnstyledButton onClick={resetFilters} style={{ fontSize: 12, fontWeight: 600, color: '#ea580c' }}>
+                    Reset all
+                  </UnstyledButton>
+                )}
+              </div>
 
-            {/* Japanese only */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingTop: 8, borderTop: `1px solid ${ov.border}` }}>
-              <Text size="xs" fw={700} c="dimmed" tt="uppercase">Japanese only</Text>
-              <Switch
-                size="xs" checked={japaneseOnly}
-                onChange={(e) => { setJapaneseOnly(e.currentTarget.checked); setCuisineFilter([]); }}
-                color="red"
-              />
-            </div>
+              {/* Price */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Price</Text>
+                <Text size="xs" fw={600} c="orange">
+                  {maxPrice >= 15000 ? 'Any' : `≤ ¥${(maxPrice / 1000).toFixed(0)}k`}
+                </Text>
+              </div>
+              <div style={{ padding: '0 4px 20px' }}>
+                <Slider
+                  value={maxPrice} onChange={setMaxPrice}
+                  min={1000} max={15000} step={1000}
+                  label={(v) => v >= 15000 ? 'Any' : `¥${(v / 1000).toFixed(0)}k`}
+                  color="orange" size="md"
+                  marks={[{ value: 1000, label: '¥1k' }, { value: 6000, label: '¥6k' }, { value: 15000, label: 'Any' }]}
+                  styles={{ markLabel: { fontSize: 10 } }}
+                />
+              </div>
 
-            {/* Cuisine tags — vertical list */}
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>Cuisine</Text>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 12 }}>
-              {cuisineTags.map(([key, label]) => (
-                <UnstyledButton
-                  key={key}
-                  onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
-                  style={{
-                    padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-                    background: cuisineFilter.includes(key) ? '#ea580c' : 'transparent',
-                    color: cuisineFilter.includes(key) ? '#fff' : ov.textDim,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {label}
-                </UnstyledButton>
-              ))}
-            </div>
+              {/* Rating */}
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={8}>Rating</Text>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                {['all', '3.9', '3.8', '3.7', '3.6'].map(v => (
+                  <UnstyledButton
+                    key={v}
+                    onClick={() => setMinRating(v)}
+                    style={{
+                      padding: '8px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                      background: minRating === v ? '#ea580c' : ov.border,
+                      color: minRating === v ? '#fff' : ov.textDim,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {v === 'all' ? 'All' : `${v}+`}
+                  </UnstyledButton>
+                ))}
+              </div>
 
-            {/* Reset */}
-            {hasActiveFilters && (
+              {/* Japanese only */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 12, borderTop: `1px solid ${ov.border}` }}>
+                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Japanese only</Text>
+                <Switch
+                  size="sm" checked={japaneseOnly}
+                  onChange={(e) => { setJapaneseOnly(e.currentTarget.checked); setCuisineFilter([]); }}
+                  color="red"
+                />
+              </div>
+
+              {/* Cuisine tags — horizontal wrap */}
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={8}>Cuisine</Text>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                {cuisineTags.map(([key, label]) => (
+                  <UnstyledButton
+                    key={key}
+                    onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                    style={{
+                      padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 500,
+                      background: cuisineFilter.includes(key) ? '#ea580c' : ov.border,
+                      color: cuisineFilter.includes(key) ? '#fff' : ov.textDim,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {label}
+                  </UnstyledButton>
+                ))}
+              </div>
+
+              {/* Done button */}
               <UnstyledButton
-                onClick={resetFilters}
+                onClick={() => setShowFilters(false)}
                 style={{
-                  width: '100%', textAlign: 'center', padding: '8px 0',
-                  fontSize: 12, fontWeight: 600, color: '#ea580c',
-                  borderTop: `1px solid ${ov.border}`, marginTop: 4,
-                  borderRadius: 8,
+                  width: '100%', textAlign: 'center', padding: '12px 0', marginTop: 8,
+                  fontSize: 14, fontWeight: 700, color: '#fff', background: '#ea580c',
+                  borderRadius: 12,
                 }}
               >
-                Reset all filters
+                Done
               </UnstyledButton>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </div>
 
