@@ -166,9 +166,6 @@ export default function MapScreen() {
       .filter(Boolean);
   }, [savedList]);
 
-  // Carousel shows all visible pins (itinerary + tabelog + saves)
-  const carouselPins = allVisiblePins;
-
   // All visible pins for map display (markers)
   const allVisiblePins = useMemo(() => {
     const pins = [];
@@ -212,6 +209,15 @@ export default function MapScreen() {
     return pins;
   }, [layers, itineraryPins, tabelogPins, savedPins]);
 
+  // Carousel only for itinerary pins
+  const carouselPins = useMemo(() => {
+    if (!layers.itinerary) return [];
+    return allVisiblePins.filter(p => p.kind === 'itinerary');
+  }, [layers.itinerary, allVisiblePins]);
+
+  // Selected non-itinerary pin (shown as overlay card)
+  const [selectedPin, setSelectedPin] = useState(null);
+
   const CARD_WIDTH = SCREEN_WIDTH - 80;
 
   // Smooth pan to a coordinate
@@ -230,21 +236,26 @@ export default function MapScreen() {
     smoothPanTo(carouselPins[index]?.coord);
   }, [carouselPins, smoothPanTo]);
 
-  // When any marker is pressed, scroll carousel to it
+  // When a marker is pressed
   const onMarkerPress = useCallback((pinKey) => {
-    const idx = carouselPins.findIndex(p => p.key === pinKey);
-    if (idx >= 0) {
-      setActivePin(idx);
-      carouselRef.current?.scrollToOffset({ offset: idx * (CARD_WIDTH + 12), animated: true });
-      // Only pan for itinerary pins; tabelog/saves stay in place
-      const pin = carouselPins[idx];
-      if (pin?.kind === 'itinerary') smoothPanTo(pin.coord);
+    // Check if it's an itinerary pin
+    const itinIdx = carouselPins.findIndex(p => p.key === pinKey);
+    if (itinIdx >= 0) {
+      setSelectedPin(null);
+      setActivePin(itinIdx);
+      carouselRef.current?.scrollToOffset({ offset: itinIdx * (CARD_WIDTH + 12), animated: true });
+      smoothPanTo(carouselPins[itinIdx]?.coord);
+      return;
     }
-  }, [carouselPins, CARD_WIDTH, smoothPanTo]);
+    // Otherwise it's a tabelog/saves pin — show overlay card
+    const pin = allVisiblePins.find(p => p.key === pinKey);
+    if (pin) setSelectedPin(pin);
+  }, [carouselPins, allVisiblePins, CARD_WIDTH, smoothPanTo]);
 
-  // Reset activePin when day changes
+  // Reset activePin and dismiss overlay when day changes
   useEffect(() => {
     setActivePin(0);
+    setSelectedPin(null);
     carouselRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [selected]);
 
@@ -545,8 +556,51 @@ export default function MapScreen() {
         </ScrollView>
       )}
 
-      {/* Bottom carousel — all visible pins */}
-      {carouselPins.length > 0 && (
+      {/* Selected pin overlay (tabelog/saves) */}
+      {selectedPin && (
+        <View style={styles.carouselWrap}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[styles.card, { width: SCREEN_WIDTH - 40, marginHorizontal: 20, backgroundColor: tc.card }]}
+          >
+            <View style={styles.cardHeader}>
+              <View style={[styles.cardDot, { backgroundColor: selectedPin.color }]}>
+                <Ionicons name={selectedPin.icon} size={12} color="#fff" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={[styles.cardTitle, { color: tc.text }]} numberOfLines={1}>{selectedPin.title}</Text>
+                <Text style={[styles.cardSub, { color: tc.textSecondary }]} numberOfLines={1}>{selectedPin.subtitle}</Text>
+              </View>
+              {selectedPin.mapUrl ? (
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(selectedPin.mapUrl)}
+                  style={[styles.dirBtn, { backgroundColor: tc.border }]}
+                >
+                  <Ionicons name="navigate" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => openDirections(selectedPin.coord.latitude, selectedPin.coord.longitude, selectedPin.title)}
+                  style={[styles.dirBtn, { backgroundColor: tc.border }]}
+                >
+                  <Ionicons name="navigate" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setSelectedPin(null)}
+            style={[styles.backBtn, { backgroundColor: tc.card }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={14} color={colors.primary} />
+            <Text style={{ fontSize: 12, fontWeight: '600', color: colors.primary, marginLeft: 4 }}>Back to itinerary</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Bottom carousel — itinerary only */}
+      {!selectedPin && carouselPins.length > 0 && (
         <View style={styles.carouselWrap}>
           {/* Prev / Next buttons */}
           <View style={styles.navRow}>
@@ -667,14 +721,13 @@ const styles = StyleSheet.create({
   },
   markerNumber: { fontSize: 12, fontWeight: '800', color: '#fff' },
   markerSmall: {
-    width: 22, height: 22, borderRadius: 11,
+    width: 24, height: 24, borderRadius: 12,
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 1.5, borderColor: '#fff',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2, shadowRadius: 2, elevation: 3,
   },
   markerSmallActive: {
-    width: 28, height: 28, borderRadius: 14,
     borderWidth: 2.5, borderColor: '#facc15',
   },
 
@@ -797,6 +850,13 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center',
     marginLeft: 8,
+  },
+  backBtn: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'center',
+    marginTop: 8, paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15, shadowRadius: 2, elevation: 2,
   },
   emptyCard: {
     position: 'absolute', bottom: Platform.OS === 'ios' ? 40 : 20,
