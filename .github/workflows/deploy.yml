@@ -26,19 +26,17 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: japan2026/package-lock.json
+      - name: Copy shared data (replace symlinks)
+        run: |
+          rm -f japan2026/src/data/tripData.js japan2026/src/data/nearbyFinds.js japan2026/src/data/savedPlaces.js japan2026/src/data/coords.js japan2026/src/data/mapConfig.js
+          cp shared/data/tripData.js japan2026/src/data/tripData.js
+          cp shared/data/nearbyFinds.js japan2026/src/data/nearbyFinds.js
+          cp shared/data/savedPlaces.js japan2026/src/data/savedPlaces.js
+          cp shared/data/coords.js japan2026/src/data/coords.js
+          cp shared/data/mapConfig.js japan2026/src/data/mapConfig.js
       - name: Install dependencies
         run: npm ci
         working-directory: japan2026
-      - name: Resolve symlinks for build
-        run: |
-          cd japan2026/src/data
-          for f in *.js; do
-            if [ -L "$f" ]; then
-              target=$(readlink "$f")
-              rm "$f"
-              cp "$target" "$f"
-            fi
-          done
       - name: Build
         run: npm run build
         working-directory: japan2026
