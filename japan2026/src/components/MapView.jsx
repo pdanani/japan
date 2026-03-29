@@ -2,21 +2,19 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
-  Title, Text, Badge, Group, Card, ScrollArea, UnstyledButton, ActionIcon,
-  Tooltip, SegmentedControl, Stack, Anchor, ThemeIcon,
+  Text, Badge, Group, Card, ScrollArea, UnstyledButton, ActionIcon, Tooltip,
 } from '@mantine/core';
 import {
-  IconMapPin, IconCalendar, IconFlame, IconStarFilled, IconBookmark,
-  IconNavigation, IconChevronLeft, IconChevronRight, IconRoute,
-  IconCurrentLocation, IconExternalLink,
+  IconStarFilled, IconBookmark, IconNavigation,
+  IconChevronLeft, IconChevronRight, IconRoute,
 } from '@tabler/icons-react';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import {
-  AREA_COORDS, getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
+  getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
-import { MAPBOX_TOKEN, MAP_DEFAULTS } from '../data/mapConfig';
+import { MAPBOX_TOKEN } from '../data/mapConfig';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -30,40 +28,9 @@ const TYPE_CONFIG = {
   activity: { color: '#ca8a04', label: 'Activity' },
 };
 
-function makeMarkerEl(color, label, isActive) {
-  const el = document.createElement('div');
-  el.style.cssText = `
-    width: ${isActive ? '36px' : '28px'}; height: ${isActive ? '36px' : '28px'};
-    border-radius: 50%; background: ${color}; color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: ${isActive ? '14px' : '12px'};
-    border: ${isActive ? '3px solid #facc15' : '2px solid #fff'};
-    box-shadow: ${isActive ? '0 0 12px rgba(250,204,21,0.6),' : ''} 0 2px 6px rgba(0,0,0,0.3);
-    cursor: pointer; transition: all 0.2s;
-  `;
-  el.textContent = label;
-  return el;
-}
-
-function makeIconMarkerEl(color, icon, isActive) {
-  const el = document.createElement('div');
-  el.style.cssText = `
-    width: ${isActive ? '36px' : '28px'}; height: ${isActive ? '36px' : '28px'};
-    border-radius: 50%; background: ${color}; color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: ${isActive ? '16px' : '13px'};
-    border: ${isActive ? '3px solid #facc15' : '2px solid #fff'};
-    box-shadow: ${isActive ? '0 0 12px rgba(250,204,21,0.6),' : ''} 0 2px 6px rgba(0,0,0,0.3);
-    cursor: pointer; transition: all 0.2s;
-  `;
-  el.textContent = icon;
-  return el;
-}
-
 export default function MapViewComponent() {
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const markersRef = useRef([]);
   const [selected, setSelected] = useState(1);
   const [activePin, setActivePin] = useState(0);
   const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
@@ -72,10 +39,8 @@ export default function MapViewComponent() {
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
-
   const toggleLayer = (key) => setLayers(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // Build pins
   const itineraryPins = useMemo(() => {
     if (!day) return [];
     return day.schedule.map((s, i) => {
@@ -119,103 +84,147 @@ export default function MapViewComponent() {
     return pins;
   }, [layers, itineraryPins, tabelogPins, savedPins]);
 
-  const routeSegments = useMemo(() => {
-    const segs = [];
-    for (let i = 0; i < itineraryPins.length - 1; i++) {
-      segs.push([
-        [itineraryPins[i].coord.longitude, itineraryPins[i].coord.latitude],
-        [itineraryPins[i + 1].coord.longitude, itineraryPins[i + 1].coord.latitude],
-      ]);
-    }
-    return segs;
-  }, [itineraryPins]);
+  // Build GeoJSON for native layers
+  // Carousel only navigates itinerary pins
+  const carouselPins = useMemo(() => {
+    if (!layers.itinerary) return [];
+    return itineraryPins.map(p => ({
+      ...p, kind: 'itinerary', title: p.activity,
+      subtitle: `${p.time} · ${p.cfg.label}`, color: p.cfg.color, number: p.index + 1,
+    }));
+  }, [layers.itinerary, itineraryPins]);
+
+  const pinsGeoJSON = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: allVisiblePins.map((pin, i) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [pin.coord.longitude, pin.coord.latitude],
+      },
+      properties: {
+        index: i,
+        label: pin.number ? String(pin.number) : (pin.kind === 'tabelog' ? '★' : '♥'),
+        color: pin.color,
+        isActive: pin.kind === 'itinerary' && pin.index === activePin,
+      },
+    })),
+  }), [allVisiblePins, activePin]);
+
+  const routeGeoJSON = useMemo(() => {
+    if (!layers.itinerary || itineraryPins.length < 2) return null;
+    return {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: itineraryPins.map(p => [p.coord.longitude, p.coord.latitude]),
+      },
+    };
+  }, [layers.itinerary, itineraryPins]);
 
   // Init map
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
-    const dayCenter = day ? getDayCenter(day) : { latitude: MAP_DEFAULTS.center[1], longitude: MAP_DEFAULTS.center[0] };
+    const dayCenter = day ? getDayCenter(day) : { latitude: 35.6762, longitude: 139.6503 };
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
       center: [dayCenter.longitude, dayCenter.latitude],
       zoom: 13,
-      pitch: 0,
     });
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
     map.current.addControl(new mapboxgl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },
       trackUserLocation: true,
     }), 'top-right');
-    map.current.on('load', () => setMapReady(true));
+
+    map.current.on('load', () => {
+      // Route glow layer
+      map.current.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.current.addLayer({
+        id: 'route-glow', type: 'line', source: 'route',
+        paint: { 'line-color': 'rgba(185,28,28,0.12)', 'line-width': 10 },
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+      });
+      map.current.addLayer({
+        id: 'route-line', type: 'line', source: 'route',
+        paint: { 'line-color': '#b91c1c', 'line-width': 3.5 },
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+      });
+
+      // Pin layers — circle + label
+      map.current.addSource('pins', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      // Active ring
+      map.current.addLayer({
+        id: 'pins-active-ring', type: 'circle', source: 'pins',
+        filter: ['==', ['get', 'isActive'], true],
+        paint: {
+          'circle-radius': 20,
+          'circle-color': 'rgba(250,204,21,0.3)',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#facc15',
+        },
+      });
+      // Base circles
+      map.current.addLayer({
+        id: 'pins-circle', type: 'circle', source: 'pins',
+        paint: {
+          'circle-radius': ['case', ['get', 'isActive'], 16, 14],
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+      });
+      // Labels
+      map.current.addLayer({
+        id: 'pins-label', type: 'symbol', source: 'pins',
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-size': 12,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+          'icon-allow-overlap': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
+
+      // Click handler on pin circles
+      map.current.on('click', 'pins-circle', (e) => {
+        const props = e.features?.[0]?.properties;
+        if (props) {
+          // Only select itinerary pins in carousel
+          const pin = allVisiblePins[props.index];
+          if (pin?.kind === 'itinerary') {
+            setActivePin(pin.index);
+          }
+          map.current.flyTo({
+            center: e.features[0].geometry.coordinates,
+            zoom: 15, duration: 800,
+          });
+        }
+      });
+      map.current.on('mouseenter', 'pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer'; });
+      map.current.on('mouseleave', 'pins-circle', () => { map.current.getCanvas().style.cursor = ''; });
+
+      setMapReady(true);
+    });
+
     return () => { map.current?.remove(); map.current = null; };
   }, []);
 
-  // Draw route lines
+  // Update route data
   useEffect(() => {
     if (!map.current || !mapReady) return;
-    // Remove old route layers/sources
-    const oldIds = (map.current.getStyle()?.layers || [])
-      .filter(l => l.id.startsWith('route-'))
-      .map(l => l.id);
-    oldIds.forEach(id => { map.current.removeLayer(id); });
-    ['route-glow', 'route-line'].forEach(id => {
-      if (map.current.getSource(id)) map.current.removeSource(id);
-    });
+    const src = map.current.getSource('route');
+    if (src) src.setData(routeGeoJSON || { type: 'FeatureCollection', features: [] });
+  }, [mapReady, routeGeoJSON]);
 
-    if (!layers.itinerary || routeSegments.length === 0) return;
-
-    const allCoords = routeSegments.flat();
-    map.current.addSource('route-glow', {
-      type: 'geojson',
-      data: { type: 'Feature', geometry: { type: 'LineString', coordinates: allCoords } },
-    });
-    map.current.addSource('route-line', {
-      type: 'geojson',
-      data: { type: 'Feature', geometry: { type: 'LineString', coordinates: allCoords } },
-    });
-    map.current.addLayer({
-      id: 'route-glow-layer',
-      type: 'line',
-      source: 'route-glow',
-      paint: { 'line-color': 'rgba(185, 28, 28, 0.12)', 'line-width': 10 },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    });
-    map.current.addLayer({
-      id: 'route-line-layer',
-      type: 'line',
-      source: 'route-line',
-      paint: { 'line-color': '#b91c1c', 'line-width': 3.5 },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    });
-  }, [mapReady, layers.itinerary, routeSegments]);
-
-  // Draw markers
+  // Update pin data
   useEffect(() => {
     if (!map.current || !mapReady) return;
-    // Clear old markers
-    markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
-
-    allVisiblePins.forEach((pin, i) => {
-      const isActive = i === activePin;
-      const el = pin.number
-        ? makeMarkerEl(pin.color, String(pin.number), isActive)
-        : makeIconMarkerEl(pin.color, pin.kind === 'tabelog' ? '★' : '♥', isActive);
-
-      el.addEventListener('click', () => {
-        setActivePin(i);
-        map.current.flyTo({
-          center: [pin.coord.longitude, pin.coord.latitude],
-          zoom: 15, duration: 800, essential: true,
-        });
-      });
-
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([pin.coord.longitude, pin.coord.latitude])
-        .addTo(map.current);
-      markersRef.current.push(marker);
-    });
-  }, [mapReady, allVisiblePins, activePin]);
+    const src = map.current.getSource('pins');
+    if (src) src.setData(pinsGeoJSON);
+  }, [mapReady, pinsGeoJSON]);
 
   // Fit map on day/layer change
   useEffect(() => {
@@ -223,7 +232,7 @@ export default function MapViewComponent() {
     if (allVisiblePins.length > 1) {
       const bounds = new mapboxgl.LngLatBounds();
       allVisiblePins.forEach(p => bounds.extend([p.coord.longitude, p.coord.latitude]));
-      map.current.fitBounds(bounds, { padding: { top: 80, right: 60, bottom: 200, left: 60 }, duration: 1000 });
+      map.current.fitBounds(bounds, { padding: { top: 80, right: 60, bottom: 160, left: 60 }, duration: 1000 });
     } else if (allVisiblePins.length === 1) {
       const p = allVisiblePins[0];
       map.current.flyTo({ center: [p.coord.longitude, p.coord.latitude], zoom: 15, duration: 1000 });
@@ -235,33 +244,29 @@ export default function MapViewComponent() {
   }, [selected, layers, mapReady, allVisiblePins.length]);
 
   const focusPin = useCallback((idx) => {
-    if (idx < 0 || idx >= allVisiblePins.length) return;
+    if (idx < 0 || idx >= carouselPins.length) return;
     setActivePin(idx);
-    const pin = allVisiblePins[idx];
+    const pin = carouselPins[idx];
     if (pin?.coord && map.current) {
       map.current.flyTo({
         center: [pin.coord.longitude, pin.coord.latitude],
-        zoom: 15, duration: 800, essential: true,
+        zoom: 15, duration: 800,
       });
     }
-  }, [allVisiblePins]);
+  }, [carouselPins]);
 
   const openDirections = (pin) => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${pin.coord.latitude},${pin.coord.longitude}`;
-    window.open(url, '_blank');
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${pin.coord.latitude},${pin.coord.longitude}`, '_blank');
   };
 
-  const currentPin = allVisiblePins[activePin];
+  const currentPin = carouselPins[activePin];
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)' }}>
-      {/* Map */}
+    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 60px)' }}>
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
 
       {/* Day selector */}
-      <div style={{
-        position: 'absolute', top: 12, left: 12, right: 60, zIndex: 10,
-      }}>
+      <div style={{ position: 'absolute', top: 12, left: 12, right: 60, zIndex: 10 }}>
         <ScrollArea type="never">
           <Group gap={6} wrap="nowrap">
             {timeline.map(d => {
@@ -323,11 +328,8 @@ export default function MapViewComponent() {
       </div>
 
       {/* Bottom carousel */}
-      {allVisiblePins.length > 0 && (
-        <div style={{
-          position: 'absolute', bottom: 12, left: 0, right: 0, zIndex: 10,
-        }}>
-          {/* Nav controls */}
+      {carouselPins.length > 0 && (
+        <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, zIndex: 10 }}>
           <Group justify="center" gap="sm" mb={8}>
             <ActionIcon variant="white" radius="xl" size="md"
               onClick={() => focusPin(activePin - 1)} disabled={activePin === 0}
@@ -336,23 +338,19 @@ export default function MapViewComponent() {
             </ActionIcon>
             <Badge size="lg" variant="white" radius="md"
               style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.1)', fontWeight: 700 }}>
-              {activePin + 1} / {allVisiblePins.length}
+              {activePin + 1} / {carouselPins.length}
             </Badge>
             <ActionIcon variant="white" radius="xl" size="md"
-              onClick={() => focusPin(activePin + 1)} disabled={activePin === allVisiblePins.length - 1}
+              onClick={() => focusPin(activePin + 1)} disabled={activePin === carouselPins.length - 1}
               style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
               <IconChevronRight size={16} />
             </ActionIcon>
           </Group>
 
-          {/* Active card */}
           {currentPin && (
             <div style={{ padding: '0 20px' }}>
               <Card shadow="md" radius="md" padding="md"
-                style={{
-                  border: '2px solid #b91c1c', maxWidth: 420, margin: '0 auto',
-                  transition: 'all 0.3s',
-                }}
+                style={{ border: '2px solid #b91c1c', maxWidth: 420, margin: '0 auto' }}
               >
                 <Group wrap="nowrap" gap="sm">
                   <div style={{

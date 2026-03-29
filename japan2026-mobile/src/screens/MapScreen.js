@@ -139,7 +139,23 @@ export default function MapScreen() {
       .filter(Boolean);
   }, [savedList]);
 
-  // Build combined flat list of all visible pins for the carousel
+  // Carousel only navigates itinerary pins
+  const carouselPins = useMemo(() => {
+    if (!layers.itinerary) return [];
+    return itineraryPins.map((p, i) => ({
+      key: `itin-${i}`,
+      kind: 'itinerary',
+      title: p.activity,
+      subtitle: `${p.time} · ${p.cfg.label}`,
+      color: p.cfg.color,
+      icon: p.cfg.icon,
+      number: p.index + 1,
+      coord: p.coord,
+      mapUrl: p.mapUrl,
+    }));
+  }, [layers.itinerary, itineraryPins]);
+
+  // All visible pins for map display (markers)
   const allVisiblePins = useMemo(() => {
     const pins = [];
     if (layers.itinerary) {
@@ -193,22 +209,22 @@ export default function MapScreen() {
     );
   }, []);
 
-  // When activePin changes, smoothly pan map to it
+  // When activePin changes, smoothly pan map to it (itinerary only)
   const focusPin = useCallback((index) => {
-    if (index < 0 || index >= allVisiblePins.length) return;
+    if (index < 0 || index >= carouselPins.length) return;
     setActivePin(index);
-    smoothPanTo(allVisiblePins[index]?.coord);
-  }, [allVisiblePins, smoothPanTo]);
+    smoothPanTo(carouselPins[index]?.coord);
+  }, [carouselPins, smoothPanTo]);
 
-  // When a marker is pressed, scroll carousel to it
+  // When an itinerary marker is pressed, scroll carousel to it
   const onMarkerPress = useCallback((pinKey) => {
-    const idx = allVisiblePins.findIndex(p => p.key === pinKey);
+    const idx = carouselPins.findIndex(p => p.key === pinKey);
     if (idx >= 0) {
       setActivePin(idx);
       carouselRef.current?.scrollToOffset({ offset: idx * (CARD_WIDTH + 12), animated: true });
-      smoothPanTo(allVisiblePins[idx]?.coord);
+      smoothPanTo(carouselPins[idx]?.coord);
     }
-  }, [allVisiblePins, CARD_WIDTH, smoothPanTo]);
+  }, [carouselPins, CARD_WIDTH, smoothPanTo]);
 
   // Reset activePin when day changes
   useEffect(() => {
@@ -288,7 +304,7 @@ export default function MapScreen() {
 
         {/* Itinerary pins */}
         {layers.itinerary && itineraryPins.map((pin, i) => {
-          const isActive = allVisiblePins[activePin]?.key === `itin-${i}`;
+          const isActive = carouselPins[activePin]?.key === `itin-${i}`;
           return (
             <Marker
               key={`itin-${selected}-${i}`}
@@ -314,7 +330,7 @@ export default function MapScreen() {
 
         {/* Tabelog pins */}
         {layers.tabelog && tabelogPins.map((pin, i) => {
-          const isActive = allVisiblePins[activePin]?.key === `tab-${i}`;
+          const isActive = false /* tabelog pins don't highlight */;
           return (
             <Marker
               key={`tab-${selected}-${i}`}
@@ -339,7 +355,7 @@ export default function MapScreen() {
 
         {/* Saved place pins */}
         {layers.saves && savedPins.map((pin, i) => {
-          const isActive = allVisiblePins[activePin]?.key === `save-${i}`;
+          const isActive = false /* saves pins don't highlight */;
           return (
             <Marker
               key={`save-${selected}-${i}`}
@@ -415,8 +431,8 @@ export default function MapScreen() {
         })}
       </View>
 
-      {/* Bottom carousel */}
-      {allVisiblePins.length > 0 && (
+      {/* Bottom carousel — itinerary only */}
+      {carouselPins.length > 0 && (
         <View style={styles.carouselWrap}>
           {/* Prev / Next buttons */}
           <View style={styles.navRow}>
@@ -432,16 +448,16 @@ export default function MapScreen() {
               <Ionicons name="chevron-back" size={18} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.navCounter}>
-              {activePin + 1} / {allVisiblePins.length}
+              {activePin + 1} / {carouselPins.length}
             </Text>
             <TouchableOpacity
               onPress={() => {
-                const next = Math.min(allVisiblePins.length - 1, activePin + 1);
+                const next = Math.min(carouselPins.length - 1, activePin + 1);
                 focusPin(next);
                 carouselRef.current?.scrollToOffset({ offset: next * (CARD_WIDTH + 12), animated: true });
               }}
-              disabled={activePin === allVisiblePins.length - 1}
-              style={[styles.navBtn, activePin === allVisiblePins.length - 1 && { opacity: 0.3 }]}
+              disabled={activePin === carouselPins.length - 1}
+              style={[styles.navBtn, activePin === carouselPins.length - 1 && { opacity: 0.3 }]}
             >
               <Ionicons name="chevron-forward" size={18} color={colors.text} />
             </TouchableOpacity>
@@ -449,7 +465,7 @@ export default function MapScreen() {
 
           <FlatList
             ref={carouselRef}
-            data={allVisiblePins}
+            data={carouselPins}
             keyExtractor={item => item.key}
             horizontal
             pagingEnabled={false}
@@ -460,7 +476,7 @@ export default function MapScreen() {
             contentContainerStyle={{ paddingHorizontal: 20 }}
             onMomentumScrollEnd={(e) => {
               const idx = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 12));
-              focusPin(Math.max(0, Math.min(idx, allVisiblePins.length - 1)));
+              focusPin(Math.max(0, Math.min(idx, carouselPins.length - 1)));
             }}
             renderItem={({ item, index }) => {
               const isActive = index === activePin;
@@ -503,7 +519,7 @@ export default function MapScreen() {
       )}
 
       {/* Empty state */}
-      {allVisiblePins.length === 0 && day && (
+      {carouselPins.length === 0 && day && (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>
             No pins for this day. Toggle a layer above.

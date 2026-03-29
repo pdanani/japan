@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Container, Tabs, Notification, Box } from '@mantine/core';
+import { Container, Tabs, Notification } from '@mantine/core';
 import {
   IconClock, IconToolsKitchen2, IconMap2, IconChecklist, IconUsers, IconRefresh, IconMapPin,
 } from '@tabler/icons-react';
@@ -19,6 +19,7 @@ export default function App() {
   const [activities, setActivities] = useState(initialActivities);
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState(null);
+  const [activeTab, setActiveTab] = useState('timeline');
 
   const showToast = useCallback((message, color) => {
     setToast({ message, color });
@@ -76,11 +77,11 @@ export default function App() {
   }, [showToast]);
 
   return (
-    <>
-      <Hero onSync={sync} syncing={syncing} />
+    <div style={activeTab === 'map' ? { height: '100vh', overflow: 'hidden' } : undefined}>
+      {activeTab !== 'map' && <Hero onSync={sync} syncing={syncing} />}
 
       <nav className="sticky-nav">
-        <Tabs defaultValue="timeline" variant="unstyled" style={{ maxWidth: 960, margin: '0 auto' }}>
+        <Tabs value={activeTab} onChange={setActiveTab} variant="unstyled" style={{ maxWidth: 960, margin: '0 auto' }}>
           <Tabs.List className="nav-inner">
             <Tabs.Tab value="timeline" className="nav-btn" leftSection={<IconClock size={16} />}>Timeline</Tabs.Tab>
             <Tabs.Tab value="map" className="nav-btn" leftSection={<IconMapPin size={16} />}>Map</Tabs.Tab>
@@ -89,28 +90,22 @@ export default function App() {
             <Tabs.Tab value="planning" className="nav-btn" leftSection={<IconChecklist size={16} />}>Planning</Tabs.Tab>
             <Tabs.Tab value="group" className="nav-btn" leftSection={<IconUsers size={16} />}>Group</Tabs.Tab>
           </Tabs.List>
-
-          {/* Map tab — full width, outside Container */}
-          <Tabs.Panel value="map">
-            <Box style={{ width: '100vw', position: 'relative', left: '50%', transform: 'translateX(-50%)' }}>
-              <MapViewComponent />
-            </Box>
-          </Tabs.Panel>
-
-          <Container size="lg" py="xl">
-            <Tabs.Panel value="timeline"><Timeline /></Tabs.Panel>
-            <Tabs.Panel value="food"><FoodMenu data={food} /></Tabs.Panel>
-            <Tabs.Panel value="activities"><Activities data={activities} /></Tabs.Panel>
-            <Tabs.Panel value="planning"><Planning /></Tabs.Panel>
-            <Tabs.Panel value="group"><TravelGroup /></Tabs.Panel>
-          </Container>
         </Tabs>
       </nav>
 
-      <footer>
-        Japan 2026 Trip Planner &middot; Data synced from{' '}
-        <a href={`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`} target="_blank" rel="noopener">Google Sheets</a>
-      </footer>
+      {/* Map — full bleed, no hero, no container */}
+      {activeTab === 'map' && <MapViewComponent />}
+
+      {/* All other tabs — inside container */}
+      {activeTab !== 'map' && (
+        <Container size="lg" py="xl">
+          {activeTab === 'timeline' && <Timeline />}
+          {activeTab === 'food' && <FoodMenu data={food} />}
+          {activeTab === 'activities' && <Activities data={activities} />}
+          {activeTab === 'planning' && <Planning />}
+          {activeTab === 'group' && <TravelGroup />}
+        </Container>
+      )}
 
       {toast && (
         <Notification
@@ -121,6 +116,6 @@ export default function App() {
           {toast.message}
         </Notification>
       )}
-    </>
+    </div>
   );
 }
