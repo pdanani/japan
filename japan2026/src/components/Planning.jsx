@@ -32,7 +32,7 @@ export default function Planning() {
               <Text fw={600} size="sm">Progress</Text>
               <Group gap="xs" mt={4}>
                 <Badge size="xs" color="teal" variant="light">{done} done</Badge>
-                <Badge size="xs" color="yellow" variant="light">{pending} pending</Badge>
+                <Badge size="xs" color="red" variant="light">{pending} pending</Badge>
                 <Badge size="xs" color="gray" variant="light">{todo} to do</Badge>
               </Group>
             </div>

@@ -89,9 +89,25 @@ export default function MapScreen() {
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
+  const [cuisineFilter, setCuisineFilter] = useState([]);
 
-  const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly;
-  const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); };
+  const cuisineTags = useMemo(() => {
+    const cats = new Map();
+    tabelogList.forEach(r => {
+      (r.cuisine || '').split(/[,/]/).forEach(c => {
+        const t = c.trim();
+        if (t && t.length > 1) {
+          const key = t.toLowerCase();
+          if (japaneseOnly && NON_JAPANESE.some(nj => key.includes(nj))) return;
+          if (!cats.has(key)) cats.set(key, t);
+        }
+      });
+    });
+    return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [tabelogList, japaneseOnly]);
+
+  const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0;
+  const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); };
 
   if (Platform.OS === 'web') {
     return (
@@ -144,6 +160,7 @@ export default function MapScreen() {
     let filtered = tabelogList;
     if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
+    if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
     if (japaneseOnly) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });
     return filtered
       .map(r => {
@@ -152,7 +169,7 @@ export default function MapScreen() {
         return { ...r, coord };
       })
       .filter(Boolean);
-  }, [tabelogList, maxPrice, minRating, japaneseOnly]);
+  }, [tabelogList, maxPrice, minRating, cuisineFilter, japaneseOnly]);
 
   // Build saved place pins
   const savedPins = useMemo(() => {
@@ -488,78 +505,77 @@ export default function MapScreen() {
         )}
       </View>
 
-      {/* Collapsible filter panel */}
+      {/* Vertical filter panel */}
       {layers.tabelog && showFilters && (
-        <View style={[styles.filterPanel, { backgroundColor: tc.card, borderColor: tc.border }]}>
-          {/* Price presets */}
-          <Text style={[styles.filterPanelLabel, { color: tc.textSecondary }]}>Price</Text>
-          <View style={styles.filterChipRow}>
-            {[
-              { label: '≤ ¥3k', value: 3000 },
-              { label: '≤ ¥6k', value: 6000 },
-              { label: 'Any', value: 15000 },
-            ].map(({ label, value }) => (
-              <TouchableOpacity
-                key={value}
-                onPress={() => setMaxPrice(value)}
-                style={[
-                  styles.filterChip,
-                  { backgroundColor: tc.border, borderColor: tc.border },
-                  maxPrice === value && styles.filterChipActive,
-                ]}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.filterChipText,
-                  { color: tc.textSecondary },
-                  maxPrice === value && styles.filterChipTextActive,
-                ]}>{label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        <ScrollView
+          style={[styles.filterPanel, { backgroundColor: tc.card, borderColor: tc.border, maxHeight: Dimensions.get('window').height - 300 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Price */}
+          <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>PRICE</Text>
+          <Text style={[styles.fpValue, { color: '#ea580c' }]}>
+            {maxPrice >= 15000 ? 'Any' : `≤ ¥${(maxPrice / 1000).toFixed(0)}k`}
+          </Text>
+          <Slider
+            value={maxPrice}
+            onValueChange={setMaxPrice}
+            minimumValue={1000}
+            maximumValue={15000}
+            step={1000}
+            minimumTrackTintColor="#ea580c"
+            maximumTrackTintColor={tc.border}
+            thumbTintColor="#ea580c"
+            style={{ marginBottom: 16 }}
+          />
 
-          {/* Rating chips */}
-          <Text style={[styles.filterPanelLabel, { color: tc.textSecondary, marginTop: 10 }]}>Rating</Text>
-          <View style={styles.filterChipRow}>
-            {['all', '3.9', '3.8', '3.7', '3.6'].map(v => (
-              <TouchableOpacity
-                key={v}
-                onPress={() => setMinRating(v)}
-                style={[
-                  styles.filterChip,
-                  { backgroundColor: tc.border, borderColor: tc.border },
-                  minRating === v && styles.filterChipActive,
-                ]}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.filterChipText,
-                  { color: tc.textSecondary },
-                  minRating === v && styles.filterChipTextActive,
-                ]}>{v === 'all' ? 'All' : `${v}+`}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Rating */}
+          <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>RATING</Text>
+          {['all', '3.9', '3.8', '3.7', '3.6'].map(v => (
+            <TouchableOpacity
+              key={v}
+              onPress={() => setMinRating(v)}
+              style={[styles.fpRow, minRating === v && { backgroundColor: '#ea580c' }]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.fpRowText, { color: minRating === v ? '#fff' : tc.textSecondary }]}>
+                {v === 'all' ? 'All ratings' : `${v}+ stars`}
+              </Text>
+            </TouchableOpacity>
+          ))}
 
-          {/* Japanese-only toggle */}
-          <View style={styles.filterSwitchRow}>
-            <Text style={[styles.filterPanelLabel, { color: tc.textSecondary }]}>Japanese only</Text>
+          {/* Japanese only */}
+          <View style={[styles.fpSwitchRow, { borderTopColor: tc.border }]}>
+            <Text style={[styles.fpLabel, { color: tc.textSecondary, marginBottom: 0 }]}>JAPANESE ONLY</Text>
             <Switch
               value={japaneseOnly}
-              onValueChange={setJapaneseOnly}
-              trackColor={{ false: tc.border, true: '#fca5a5' }}
-              thumbColor={japaneseOnly ? colors.primary : tc.card}
+              onValueChange={(v) => { setJapaneseOnly(v); setCuisineFilter([]); }}
+              trackColor={{ false: tc.border, true: '#fdba74' }}
+              thumbColor={japaneseOnly ? '#ea580c' : tc.card}
             />
           </View>
 
+          {/* Cuisine */}
+          <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>CUISINE</Text>
+          {cuisineTags.map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              onPress={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+              style={[styles.fpRow, cuisineFilter.includes(key) && { backgroundColor: '#ea580c' }]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.fpRowText, { color: cuisineFilter.includes(key) ? '#fff' : tc.textSecondary }]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
           {/* Reset */}
           {hasActiveFilters && (
-            <TouchableOpacity onPress={resetFilters} style={[styles.filterResetBtn, { borderTopColor: tc.border }]} activeOpacity={0.7}>
-              <Ionicons name="refresh" size={14} color="#ea580c" />
-              <Text style={styles.filterResetText}>Reset filters</Text>
+            <TouchableOpacity onPress={resetFilters} style={[styles.fpResetBtn, { borderTopColor: tc.border }]} activeOpacity={0.7}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#ea580c' }}>Reset all filters</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
       )}
 
       {/* Bottom carousel — itinerary only */}
@@ -722,46 +738,32 @@ const styles = StyleSheet.create({
   },
   layerCountText: { fontSize: 10, fontWeight: '700', color: colors.textSecondary },
 
-  // Filter panel
+  // Vertical filter panel
   filterPanel: {
     position: 'absolute', top: Platform.OS === 'ios' ? 120 : 100,
-    left: 120, right: 12, maxWidth: 220,
-    backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15, shadowRadius: 8, elevation: 6,
-    borderWidth: 1, borderColor: '#e5e7eb',
+    left: 12, width: 190,
+    borderRadius: 12, padding: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2, shadowRadius: 12, elevation: 8,
+    borderWidth: 1,
   },
-  filterPanelLabel: {
-    fontSize: 11, fontWeight: '700', color: colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
+  fpLabel: {
+    fontSize: 10, fontWeight: '700', letterSpacing: 1,
+    textTransform: 'uppercase', marginBottom: 6,
   },
-  filterChipRow: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+  fpValue: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  fpRow: {
+    paddingVertical: 7, paddingHorizontal: 10, borderRadius: 8, marginBottom: 3,
   },
-  filterChip: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12,
-    backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb',
-  },
-  filterChipActive: {
-    backgroundColor: '#ea580c', borderColor: '#ea580c',
-  },
-  filterChipText: {
-    fontSize: 11, fontWeight: '600', color: '#6b7280',
-  },
-  filterChipTextActive: {
-    color: '#fff',
-  },
-  filterSwitchRow: {
+  fpRowText: { fontSize: 13, fontWeight: '500' },
+  fpSwitchRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 10,
+    paddingVertical: 10, marginVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  filterResetBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
-    marginTop: 10, paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e7eb',
-  },
-  filterResetText: {
-    fontSize: 12, fontWeight: '600', color: '#ea580c',
+  fpResetBtn: {
+    alignItems: 'center', paddingVertical: 10, marginTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 
   markerActive: {

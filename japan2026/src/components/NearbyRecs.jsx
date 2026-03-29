@@ -264,7 +264,7 @@ export default function NearbyRecs({ dayNumber, onBack }) {
               <Group gap={6} wrap="nowrap">
                 <Text size="xs" fw={500} c="dimmed" style={{ flexShrink: 0 }}>Rating:</Text>
                 <SegmentedControl
-                  size="xs" radius="xl" color="yellow"
+                  size="xs" radius="xl" color="red"
                   value={minRating} onChange={setMinRating}
                   data={[
                     { label: 'All', value: 'all' },
