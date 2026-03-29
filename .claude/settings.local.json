@@ -13,7 +13,20 @@
       "Bash(ssh-keygen -t ed25519 -C \"pdanani@github\" -f ~/.ssh/id_ed25519 -N \"\")",
       "Bash(open \"https://github.com/settings/ssh/new\")",
       "Bash(ssh -T git@github.com)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(npm view:*)",
+      "Bash(npm install:*)",
+      "Bash(npx create-expo-app@latest japan2026-mobile-temp --template blank)",
+      "Bash(npx expo:*)",
+      "Bash(node -e \"try { require.resolve\\(''@expo/vector-icons'', {paths:[''/Users/nanicheen/Desktop/test/japan2026-mobile'']}\\); console.log\\(''FOUND''\\) } catch\\(e\\) { console.log\\(''NOT FOUND''\\) }\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8081)",
+      "Bash(node -e \"console.log\\(require\\(''expo/package.json''\\).version\\)\")",
+      "Bash(node -e \"console.log\\(''Expo SDK:'', require\\(''expo/package.json''\\).version\\)\")",
+      "Bash(ln -s ../../../shared/data/tripData.js tripData.js)",
+      "Bash(ln -s ../../../shared/data/nearbyFinds.js nearbyFinds.js)",
+      "Bash(ln -s ../../../shared/data/savedPlaces.js savedPlaces.js)",
+      "Bash(npx vite:*)",
+      "Bash(git push:*)"
     ]
   }
 }
