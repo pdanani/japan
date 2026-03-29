@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Platform, Dimensions, FlatList, Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
+
 
 let MapView, Marker, Polyline, Callout;
 if (Platform.OS !== 'web') {
@@ -525,20 +525,24 @@ export default function MapScreen() {
           </TouchableOpacity>
           {/* Price */}
           <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>PRICE</Text>
-          <Text style={[styles.fpValue, { color: '#ea580c' }]}>
-            {maxPrice >= 15000 ? 'Any' : `≤ ¥${(maxPrice / 1000).toFixed(0)}k`}
-          </Text>
-          <Slider
-            value={maxPrice}
-            onValueChange={setMaxPrice}
-            minimumValue={1000}
-            maximumValue={15000}
-            step={1000}
-            minimumTrackTintColor="#ea580c"
-            maximumTrackTintColor={tc.border}
-            thumbTintColor="#ea580c"
-            style={{ marginBottom: 16 }}
-          />
+          {[
+            { label: '≤ ¥1k', value: 1000 },
+            { label: '≤ ¥3k', value: 3000 },
+            { label: '≤ ¥6k', value: 6000 },
+            { label: '≤ ¥10k', value: 10000 },
+            { label: 'Any', value: 15000 },
+          ].map(({ label, value }) => (
+            <TouchableOpacity
+              key={value}
+              onPress={() => setMaxPrice(value)}
+              style={[styles.fpRow, maxPrice === value && { backgroundColor: '#ea580c' }]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.fpRowText, { color: maxPrice === value ? '#fff' : tc.textSecondary }]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
 
           {/* Rating */}
           <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>RATING</Text>
