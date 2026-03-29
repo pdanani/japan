@@ -496,11 +496,12 @@ export default function MapViewComponent() {
               }}
             />
             <div style={{
-              position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
+              position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+              width: '100%', maxWidth: 480, zIndex: 1000,
               background: ov.bg, borderRadius: '16px 16px 0 0',
-              padding: '12px 20px calc(env(safe-area-inset-bottom, 12px) + 12px)',
+              padding: '12px 20px calc(env(safe-area-inset-bottom, 20px) + 16px)',
               boxShadow: '0 -4px 24px rgba(0,0,0,0.2)',
-              maxHeight: '70vh', overflowY: 'auto',
+              maxHeight: '60vh', overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
             }}>
               {/* Handle bar */}
