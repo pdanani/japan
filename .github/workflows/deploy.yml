@@ -40,6 +40,8 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: japan2026
+        env:
+          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
