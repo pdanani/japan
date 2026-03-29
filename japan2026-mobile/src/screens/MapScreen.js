@@ -67,6 +67,8 @@ export default function MapScreen() {
   const carouselRef = useRef(null);
   const [selected, setSelected] = useState(1);
   const [activePin, setActivePin] = useState(0);
+  const [carouselMode, setCarouselMode] = useState('itinerary'); // 'itinerary' | 'tabelog'
+  const [tabelogIdx, setTabelogIdx] = useState(0);
   const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
   const [showRoute, setShowRoute] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -215,8 +217,9 @@ export default function MapScreen() {
     return allVisiblePins.filter(p => p.kind === 'itinerary');
   }, [layers.itinerary, allVisiblePins]);
 
-  // Selected non-itinerary pin (shown as overlay card)
-  const [selectedPin, setSelectedPin] = useState(null);
+  // Non-itinerary pins (tabelog + saves) for their own carousel
+  const nonItinPins = useMemo(() => allVisiblePins.filter(p => p.kind !== 'itinerary'), [allVisiblePins]);
+  const activeNonItinPin = carouselMode === 'tabelog' ? nonItinPins[tabelogIdx] : null;
 
   const CARD_WIDTH = SCREEN_WIDTH - 80;
 
@@ -241,21 +244,25 @@ export default function MapScreen() {
     // Check if it's an itinerary pin
     const itinIdx = carouselPins.findIndex(p => p.key === pinKey);
     if (itinIdx >= 0) {
-      setSelectedPin(null);
+      setCarouselMode('itinerary');
       setActivePin(itinIdx);
       carouselRef.current?.scrollToOffset({ offset: itinIdx * (CARD_WIDTH + 12), animated: true });
       smoothPanTo(carouselPins[itinIdx]?.coord);
       return;
     }
-    // Otherwise it's a tabelog/saves pin — show overlay card
-    const pin = allVisiblePins.find(p => p.key === pinKey);
-    if (pin) setSelectedPin(pin);
-  }, [carouselPins, allVisiblePins, CARD_WIDTH, smoothPanTo]);
+    // Otherwise it's a tabelog/saves pin — switch to tabelog carousel
+    const idx = nonItinPins.findIndex(p => p.key === pinKey);
+    if (idx >= 0) {
+      setCarouselMode('tabelog');
+      setTabelogIdx(idx);
+    }
+  }, [carouselPins, nonItinPins, CARD_WIDTH, smoothPanTo]);
 
-  // Reset activePin and dismiss overlay when day changes
+  // Reset when day changes
   useEffect(() => {
     setActivePin(0);
-    setSelectedPin(null);
+    setTabelogIdx(0);
+    setCarouselMode('itinerary');
     carouselRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [selected]);
 
@@ -581,40 +588,55 @@ export default function MapScreen() {
         </>
       )}
 
-      {/* Selected pin overlay (tabelog/saves) — hidden when filter sheet open */}
-      {!showFilters && selectedPin && (
+      {/* Tabelog/saves carousel — hidden when filter sheet open */}
+      {!showFilters && carouselMode === 'tabelog' && activeNonItinPin && (
         <View style={styles.carouselWrap}>
+          {/* Prev / Next */}
+          <View style={styles.navRow}>
+            <TouchableOpacity
+              onPress={() => setTabelogIdx(Math.max(0, tabelogIdx - 1))}
+              disabled={tabelogIdx === 0}
+              style={[styles.navBtn, { backgroundColor: tc.card }, tabelogIdx === 0 && { opacity: 0.3 }]}
+            >
+              <Ionicons name="chevron-back" size={18} color={tc.text} />
+            </TouchableOpacity>
+            <Text style={[styles.navCounter, { color: tc.text, backgroundColor: tc.card }]}>
+              {tabelogIdx + 1} / {nonItinPins.length}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setTabelogIdx(Math.min(nonItinPins.length - 1, tabelogIdx + 1))}
+              disabled={tabelogIdx === nonItinPins.length - 1}
+              style={[styles.navBtn, { backgroundColor: tc.card }, tabelogIdx === nonItinPins.length - 1 && { opacity: 0.3 }]}
+            >
+              <Ionicons name="chevron-forward" size={18} color={tc.text} />
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             activeOpacity={0.9}
             style={[styles.card, { width: SCREEN_WIDTH - 40, marginHorizontal: 20, backgroundColor: tc.card }]}
           >
             <View style={styles.cardHeader}>
-              <View style={[styles.cardDot, { backgroundColor: selectedPin.color }]}>
-                <Ionicons name={selectedPin.icon} size={12} color="#fff" />
+              <View style={[styles.cardDot, { backgroundColor: activeNonItinPin.color }]}>
+                <Ionicons name={activeNonItinPin.icon} size={12} color="#fff" />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={[styles.cardTitle, { color: tc.text }]} numberOfLines={1}>{selectedPin.title}</Text>
-                <Text style={[styles.cardSub, { color: tc.textSecondary }]} numberOfLines={1}>{selectedPin.subtitle}</Text>
+                <Text style={[styles.cardTitle, { color: tc.text }]} numberOfLines={1}>{activeNonItinPin.title}</Text>
+                <Text style={[styles.cardSub, { color: tc.textSecondary }]} numberOfLines={1}>{activeNonItinPin.subtitle}</Text>
               </View>
-              {selectedPin.mapUrl ? (
-                <TouchableOpacity
-                  onPress={() => Linking.openURL(selectedPin.mapUrl)}
-                  style={[styles.dirBtn, { backgroundColor: tc.border }]}
-                >
-                  <Ionicons name="navigate" size={18} color={colors.primary} />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => openDirections(selectedPin.coord.latitude, selectedPin.coord.longitude, selectedPin.title)}
-                  style={[styles.dirBtn, { backgroundColor: tc.border }]}
-                >
-                  <Ionicons name="navigate" size={18} color={colors.primary} />
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                onPress={() => {
+                  if (activeNonItinPin.mapUrl) Linking.openURL(activeNonItinPin.mapUrl);
+                  else openDirections(activeNonItinPin.coord.latitude, activeNonItinPin.coord.longitude, activeNonItinPin.title);
+                }}
+                style={[styles.dirBtn, { backgroundColor: tc.border }]}
+              >
+                <Ionicons name="navigate" size={18} color={colors.primary} />
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => setSelectedPin(null)}
+            onPress={() => { setCarouselMode('itinerary'); setTabelogIdx(0); }}
             style={[styles.backBtn, { backgroundColor: tc.card }]}
             activeOpacity={0.7}
           >
@@ -624,8 +646,8 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Bottom carousel — itinerary only, hidden when filter sheet open */}
-      {!showFilters && !selectedPin && carouselPins.length > 0 && (
+      {/* Bottom carousel — itinerary only, hidden when filter sheet open or in tabelog mode */}
+      {!showFilters && carouselMode === 'itinerary' && carouselPins.length > 0 && (
         <View style={styles.carouselWrap}>
           {/* Prev / Next buttons */}
           <View style={styles.navRow}>

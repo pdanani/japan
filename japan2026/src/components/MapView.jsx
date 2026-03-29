@@ -55,7 +55,8 @@ export default function MapViewComponent() {
   const pinsRef = useRef([]); // always-current reference to allVisiblePins
   const [selected, setSelected] = useState(1);
   const [activePin, setActivePin] = useState(0);
-  const [selectedPin, setSelectedPin] = useState(null);
+  const [selectedPin, setSelectedPin] = useState(null); // index into tabelogPins, or null
+  const [carouselMode, setCarouselMode] = useState('itinerary'); // 'itinerary' | 'tabelog'
   const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
   const [showRoute, setShowRoute] = useState(true);
   const [mapReady, setMapReady] = useState(false);
@@ -136,8 +137,7 @@ export default function MapViewComponent() {
     return pins;
   }, [layers, itineraryPins, tabelogPins, savedPins]);
 
-  // Build GeoJSON for native layers
-  // Carousel only navigates itinerary pins
+  // Itinerary carousel pins
   const carouselPins = useMemo(() => {
     if (!layers.itinerary) return [];
     return itineraryPins.map(p => ({
@@ -145,6 +145,9 @@ export default function MapViewComponent() {
       subtitle: `${p.time} · ${p.cfg.label}`, color: p.cfg.color, number: p.index + 1,
     }));
   }, [layers.itinerary, itineraryPins]);
+
+  // Non-itinerary pins (tabelog + saves) for their own carousel
+  const nonItinPins = useMemo(() => allVisiblePins.filter(p => p.kind !== 'itinerary'), [allVisiblePins]);
 
   // Keep ref in sync so click handler always has current data
   pinsRef.current = allVisiblePins;
@@ -167,18 +170,21 @@ export default function MapViewComponent() {
     })),
   }), [allVisiblePins, activePin]);
 
-  // Separate highlight GeoJSON — only rebuilds when selectedPin changes, doesn't touch main pins
+  // The currently displayed non-itinerary pin (if in tabelog mode)
+  const activeNonItinPin = carouselMode === 'tabelog' && selectedPin != null ? nonItinPins[selectedPin] : null;
+
+  // Separate highlight GeoJSON — only rebuilds when selectedPin changes
   const highlightGeoJSON = useMemo(() => {
-    if (!selectedPin) return { type: 'FeatureCollection', features: [] };
+    if (!activeNonItinPin) return { type: 'FeatureCollection', features: [] };
     return {
       type: 'FeatureCollection',
       features: [{
         type: 'Feature',
-        geometry: { type: 'Point', coordinates: [selectedPin.coord.longitude, selectedPin.coord.latitude] },
-        properties: { color: selectedPin.color },
+        geometry: { type: 'Point', coordinates: [activeNonItinPin.coord.longitude, activeNonItinPin.coord.latitude] },
+        properties: { color: activeNonItinPin.color },
       }],
     };
-  }, [selectedPin]);
+  }, [activeNonItinPin]);
 
   const routeGeoJSON = useMemo(() => {
     if (!layers.itinerary || itineraryPins.length < 2) return null;
@@ -273,19 +279,20 @@ export default function MapViewComponent() {
 
         if (pin.kind === 'itinerary') {
           setActivePin(pin.index);
+          setCarouselMode('itinerary');
           setSelectedPin(null);
-        } else {
-          setSelectedPin(pin);
-        }
-
-        // Only fly/zoom for itinerary pins; tabelog/saves just highlight in place
-        if (pin.kind === 'itinerary') {
           const currentZoom = map.current.getZoom();
           map.current.flyTo({
             center: e.features[0].geometry.coordinates,
             zoom: Math.max(currentZoom, 15),
             duration: 600,
           });
+        } else {
+          // Find index in the non-itinerary visible pins list
+          const nonItinPins = pinsRef.current.filter(p => p.kind !== 'itinerary');
+          const idx = nonItinPins.findIndex(p => p.key === pin.key);
+          setSelectedPin(idx >= 0 ? idx : 0);
+          setCarouselMode('tabelog');
         }
       });
       map.current.on('mouseenter', 'pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer'; });
@@ -360,12 +367,13 @@ export default function MapViewComponent() {
     }
     setActivePin(0);
     setSelectedPin(null);
+    setCarouselMode('itinerary');
   }, [selected, mapReady]);
 
   const focusPin = useCallback((idx) => {
     if (idx < 0 || idx >= carouselPins.length) return;
     setActivePin(idx);
-    setSelectedPin(null); // back to carousel mode
+    setCarouselMode('itinerary');
     const pin = carouselPins[idx];
     if (pin?.coord && map.current) {
       map.current.flyTo({
@@ -379,7 +387,7 @@ export default function MapViewComponent() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${pin.coord.latitude},${pin.coord.longitude}`, '_blank');
   };
 
-  const displayPin = selectedPin || carouselPins[activePin];
+  const displayPin = carouselMode === 'tabelog' ? activeNonItinPin : carouselPins[activePin];
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 'calc(100dvh - 56px - env(safe-area-inset-top, 0px))', overflow: 'hidden' }}>
@@ -600,66 +608,79 @@ export default function MapViewComponent() {
       </div>
 
       {/* Bottom card + carousel controls — hidden when filter sheet is open */}
-      {!showFilters && (carouselPins.length > 0 || selectedPin) && (
+      {!showFilters && displayPin && (
         <div style={{ position: 'absolute', bottom: 'env(safe-area-inset-bottom, 12px)', left: 0, right: 0, zIndex: 10, paddingBottom: 4 }}>
-          {/* Carousel arrows — only for itinerary, hidden when viewing a non-itinerary pin */}
-          {!selectedPin && carouselPins.length > 0 && (
-            <Group justify="center" gap="sm" mb={8}>
-              <ActionIcon variant="default" radius="xl" size="md"
-                onClick={() => focusPin(activePin - 1)} disabled={activePin === 0}
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)', background: ov.bg, color: ov.text, borderColor: ov.border }}>
-                <IconChevronLeft size={16} />
-              </ActionIcon>
-              <Badge size="lg" variant="default" radius="md"
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.1)', fontWeight: 700, background: ov.bg, color: ov.text, borderColor: ov.border }}>
-                {activePin + 1} / {carouselPins.length}
-              </Badge>
-              <ActionIcon variant="default" radius="xl" size="md"
-                onClick={() => focusPin(activePin + 1)} disabled={activePin === carouselPins.length - 1}
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)', background: ov.bg, color: ov.text, borderColor: ov.border }}>
-                <IconChevronRight size={16} />
-              </ActionIcon>
-            </Group>
-          )}
+          {/* Carousel arrows */}
+          {(() => {
+            const list = carouselMode === 'tabelog' ? nonItinPins : carouselPins;
+            const idx = carouselMode === 'tabelog' ? selectedPin : activePin;
+            if (list.length === 0) return null;
+            const goPrev = () => {
+              const prev = Math.max(0, idx - 1);
+              if (carouselMode === 'tabelog') setSelectedPin(prev);
+              else focusPin(prev);
+            };
+            const goNext = () => {
+              const next = Math.min(list.length - 1, idx + 1);
+              if (carouselMode === 'tabelog') setSelectedPin(next);
+              else focusPin(next);
+            };
+            return (
+              <Group justify="center" gap="sm" mb={8}>
+                <ActionIcon variant="default" radius="xl" size="md"
+                  onClick={goPrev} disabled={idx === 0}
+                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)', background: ov.bg, color: ov.text, borderColor: ov.border }}>
+                  <IconChevronLeft size={16} />
+                </ActionIcon>
+                <Badge size="lg" variant="default" radius="md"
+                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.1)', fontWeight: 700, background: ov.bg, color: ov.text, borderColor: ov.border }}>
+                  {idx + 1} / {list.length}
+                </Badge>
+                <ActionIcon variant="default" radius="xl" size="md"
+                  onClick={goNext} disabled={idx === list.length - 1}
+                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)', background: ov.bg, color: ov.text, borderColor: ov.border }}>
+                  <IconChevronRight size={16} />
+                </ActionIcon>
+              </Group>
+            );
+          })()}
 
-          {displayPin && (
-            <div style={{ padding: '0 12px' }}>
-              <Card shadow="md" radius="md" padding="sm"
-                style={{
-                  border: `1px solid ${selectedPin ? displayPin.color : 'var(--mantine-color-red-6)'}`,
-                  maxWidth: 420, margin: '0 auto',
-                }}
-              >
-                <Group wrap="nowrap" gap="sm">
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 18, background: displayPin.color,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0,
-                  }}>
-                    {displayPin.number || (displayPin.kind === 'tabelog' ? '★' : '♥')}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <Text fw={700} size="sm" truncate>{displayPin.title}</Text>
-                    <Text size="xs" c="dimmed" truncate>{displayPin.subtitle}</Text>
-                  </div>
-                  {selectedPin && (
-                    <Tooltip label="Back to itinerary">
-                      <ActionIcon variant="subtle" color="gray" radius="xl" size="md"
-                        onClick={() => setSelectedPin(null)}>
-                        <IconChevronLeft size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                  <Tooltip label="Get directions">
-                    <ActionIcon variant="light" color="red" radius="xl" size="lg"
-                      onClick={() => openDirections(displayPin)}>
-                      <IconNavigation size={18} />
+          <div style={{ padding: '0 12px' }}>
+            <Card shadow="md" radius="md" padding="sm"
+              style={{
+                border: `1px solid ${displayPin.color || 'var(--mantine-color-red-6)'}`,
+                maxWidth: 420, margin: '0 auto',
+              }}
+            >
+              <Group wrap="nowrap" gap="sm">
+                <div style={{
+                  width: 36, height: 36, borderRadius: 18, background: displayPin.color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0,
+                }}>
+                  {displayPin.number || (displayPin.kind === 'tabelog' ? '★' : '♥')}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text fw={700} size="sm" truncate>{displayPin.title}</Text>
+                  <Text size="xs" c="dimmed" truncate>{displayPin.subtitle}</Text>
+                </div>
+                {carouselMode === 'tabelog' && (
+                  <Tooltip label="Back to itinerary">
+                    <ActionIcon variant="subtle" color="gray" radius="xl" size="md"
+                      onClick={() => { setCarouselMode('itinerary'); setSelectedPin(null); }}>
+                      <IconChevronLeft size={16} />
                     </ActionIcon>
                   </Tooltip>
-                </Group>
-              </Card>
-            </div>
-          )}
+                )}
+                <Tooltip label="Get directions">
+                  <ActionIcon variant="light" color="red" radius="xl" size="lg"
+                    onClick={() => openDirections(displayPin)}>
+                    <IconNavigation size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            </Card>
+          </div>
         </div>
       )}
 
