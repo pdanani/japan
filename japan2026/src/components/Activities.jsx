@@ -5,27 +5,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconSearch, IconMapPin, IconUser, IconExternalLink, IconFilter, IconX } from '@tabler/icons-react';
-
-const CAT_COLORS = {
-  shopping: 'pink', cameras: 'pink',
-  site: 'green', sites: 'green',
-  activity: 'violet', 'day trip': 'indigo', overnight: 'indigo',
-  music: 'grape', drinks: 'grape',
-};
-
-function getCatColor(cat) {
-  const c = cat.toLowerCase();
-  for (const [key, color] of Object.entries(CAT_COLORS)) {
-    if (c.includes(key)) return color;
-  }
-  return 'gray';
-}
-
-// Split compound names like "Pawan/Adrian" or "Adrian / Angel" into individual names
-function splitNames(name) {
-  if (!name) return [];
-  return name.split(/\s*[/,]\s*/).map(n => n.trim()).filter(Boolean);
-}
+import { getCatColor, splitNames } from '../utils';
 
 export default function Activities({ data }) {
   const [search, setSearch] = useState('');
@@ -135,9 +115,7 @@ export default function Activities({ data }) {
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
           {filtered.map((a, i) => (
             <Card key={i} shadow="sm" padding="md" radius="md" withBorder
-              style={{ transition: 'transform 0.2s, box-shadow 0.2s' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+              className="card-hoverable"
             >
               <Group justify="space-between" align="flex-start" wrap="nowrap" mb="xs">
                 <Text fw={600} size="sm" style={{ flex: 1, lineHeight: 1.4 }}>{a.details}</Text>

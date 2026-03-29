@@ -6,66 +6,26 @@ import {
 } from '@mantine/core';
 import {
   IconStarFilled, IconMapPin, IconExternalLink, IconArrowLeft,
-  IconFlame, IconSearch, IconFilter, IconX, IconCurrentLocation,
+  IconFlame, IconCurrentLocation,
 } from '@tabler/icons-react';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import { timeline } from '../data/tripData';
 import { AREA_COORDS } from '../data/coords';
-
-const NON_JAPANESE = [
-  'italian', 'french', 'indian', 'chinese', 'sichuan', 'korean',
-  'thai', 'vietnamese', 'spanish', 'american', 'peruvian',
-  'nepalese', 'sri lankan', 'bistro', 'pizza', 'pasta', 'steak',
-];
+import { NON_JAPANESE, parsePrice, getCatColor, haversine, formatDist, extractCuisineTags, filterTabelogList } from '../utils';
 
 const PLACE_TYPE_COLORS = { food: 'orange', shopping: 'pink', site: 'green', activity: 'yellow' };
 
-function parsePrice(p) {
-  if (!p) return 0;
-  const m = p.match(/[\d,]+/);
-  return m ? parseInt(m[0].replace(/,/g, ""), 10) : 0;
-}
-function getCatColor(cat) {
-  const c = cat.toLowerCase();
-  const map = {
-    ramen: 'orange', noodle: 'orange', soba: 'orange', sushi: 'blue',
-    coffee: 'yellow', cafe: 'yellow', bbq: 'red', katsu: 'red', wagyu: 'red',
-    bar: 'grape', wine: 'grape', izakaya: 'grape', pancake: 'pink',
-    dessert: 'pink', cake: 'pink', bread: 'yellow', curry: 'orange',
-  };
-  for (const [key, color] of Object.entries(map)) {
-    if (c.includes(key)) return color;
-  }
-  return 'gray';
-}
-
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 function getCoordForItem(item) {
-  // tabelog: check station
   if (item.station) {
     if (AREA_COORDS[item.station]) return AREA_COORDS[item.station];
     for (const [key, coord] of Object.entries(AREA_COORDS)) {
       if (item.station.toLowerCase().includes(key.toLowerCase())) return coord;
     }
   }
-  // saved: check area, city
   if (item.area && AREA_COORDS[item.area]) return AREA_COORDS[item.area];
   if (item.city && AREA_COORDS[item.city]) return AREA_COORDS[item.city];
   return null;
-}
-
-function formatDist(km) {
-  const mi = km * 0.621371;
-  if (mi < 0.1) return `${Math.round(mi * 5280)} ft`;
-  return `${mi.toFixed(1)} mi`;
 }
 
 export default function NearbyRecs({ dayNumber, onBack }) {
@@ -357,7 +317,7 @@ export default function NearbyRecs({ dayNumber, onBack }) {
                 </Group>
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                   {items.map(r => (
-                    <Card key={r.rank} withBorder radius="sm" padding="sm" style={{ borderLeft: '3px solid #e85d04' }}>
+                    <Card key={r.rank} withBorder radius="sm" padding="sm" style={{ borderLeft: '2px solid var(--mantine-color-orange-5)' }}>
                       <Group justify="space-between" wrap="nowrap" gap="xs">
                         <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
                           <Group gap={6} wrap="nowrap">
@@ -450,7 +410,7 @@ export default function NearbyRecs({ dayNumber, onBack }) {
                     const color = PLACE_TYPE_COLORS[p.type] || 'gray';
                     return (
                       <Card key={i} withBorder radius="sm" padding="sm"
-                        style={{ borderLeft: `3px solid var(--mantine-color-${color}-5, #868e96)` }}>
+                        style={{ borderLeft: `2px solid var(--mantine-color-${color}-5, #868e96)` }}>
                         <Group justify="space-between" wrap="nowrap" gap="xs">
                           <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
                             <Group gap={6} wrap="nowrap">

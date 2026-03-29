@@ -22,7 +22,7 @@ export default function TravelGroup() {
       <Stack gap="md" mb="xl">
         {withAllergies.map((t, i) => (
           <Card key={i} shadow="sm" padding="lg" radius="md" withBorder
-            style={{ borderLeft: `4px solid var(--mantine-color-red-5)` }}
+            style={{ borderLeft: `2px solid var(--mantine-color-red-5)` }}
           >
             <Group wrap="nowrap" gap="md">
               <Avatar color={ALLERGY_COLORS[i % ALLERGY_COLORS.length]} radius="xl" size={48}>

@@ -1,16 +1,17 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { MantineProvider, createTheme, Container, Notification, ActionIcon, Tooltip } from '@mantine/core';
+import { useState, useCallback, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { MantineProvider, createTheme, Container, Notification, ActionIcon, Tooltip, Loader, Center } from '@mantine/core';
 import {
   IconClock, IconToolsKitchen2, IconMap2, IconAlertTriangle, IconRefresh, IconMapPin,
   IconDots, IconArrowUp, IconMoon, IconSun,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
 import Timeline from './components/Timeline';
-import MapViewComponent from './components/MapView';
 import FoodMenu from './components/FoodMenu';
 import Activities from './components/Activities';
 import TravelGroup from './components/TravelGroup';
 import NearbyRecs from './components/NearbyRecs';
+
+const MapViewComponent = lazy(() => import('./components/MapView'));
 import { SHEET_ID, initialFood, initialActivities } from './data/tripData';
 import './App.css';
 
@@ -73,9 +74,11 @@ export default function App() {
     return () => document.removeEventListener('pointerdown', handler);
   }, [moreOpen]);
 
+  const toastTimer = useRef(null);
   const showToast = useCallback((message, color) => {
+    clearTimeout(toastTimer.current);
     setToast({ message, color });
-    setTimeout(() => setToast(null), 3500);
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
   }, []);
 
   const sync = useCallback(async () => {
@@ -245,7 +248,11 @@ export default function App() {
       </header>
 
       {/* Map — full bleed */}
-      {activeTab === 'map' && <MapViewComponent />}
+      {activeTab === 'map' && (
+        <Suspense fallback={<Center h="80vh"><Loader color="red" /></Center>}>
+          <MapViewComponent />
+        </Suspense>
+      )}
 
       {/* All other tabs — inside container */}
       {activeTab !== 'map' && (

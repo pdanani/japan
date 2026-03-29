@@ -26,7 +26,8 @@
       "Bash(ln -s ../../../shared/data/nearbyFinds.js nearbyFinds.js)",
       "Bash(ln -s ../../../shared/data/savedPlaces.js savedPlaces.js)",
       "Bash(npx vite:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git diff:*)"
     ]
   }
 }

@@ -92,11 +92,11 @@ export default function TimelineSection({ onNearbyRecs }) {
                   flexShrink: 0, minWidth: 82,
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   padding: '10px 14px', borderRadius: 10,
-                  border: `1.5px solid ${active ? '#b91c1c' : '#e5e7eb'}`,
-                  background: active ? '#b91c1c' : 'var(--card-bg, white)',
-                  color: active ? 'white' : 'var(--text, #1f2937)',
+                  border: `1px solid ${active ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-3)'}`,
+                  background: active ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-body)',
+                  color: active ? 'white' : 'var(--mantine-color-text)',
                   transition: 'all 0.2s',
-                  boxShadow: active ? '0 4px 14px rgba(185,28,28,0.3)' : '0 1px 2px rgba(0,0,0,0.04)',
+                  boxShadow: active ? '0 2px 8px rgba(185,28,28,0.2)' : 'none',
                 }}
               >
                 <Text size="10px" fw={600} tt="uppercase" opacity={active ? 0.85 : 0.5}>
@@ -115,19 +115,19 @@ export default function TimelineSection({ onNearbyRecs }) {
       {/* Selected day detail */}
       {day && (
         <>
-          <Card withBorder radius="md" p="lg" mb="md" style={{ borderLeft: '4px solid #b91c1c' }}>
+          <Card withBorder radius="md" p="lg" mb="md" style={{ borderLeft: '2px solid var(--mantine-color-red-6)' }}>
             <Title order={3} size="h4">
               {day.day === 0 ? 'Travel Day' : day.day === 15 ? 'Departure' : `Day ${day.day} — ${day.dayOfWeek}`}
             </Title>
             <Group gap="md" mt={4}>
-              <Group gap={4}><IconCalendar size={14} color="#6b7280" /><Text size="sm" c="dimmed">{day.date}</Text></Group>
-              <Group gap={4}><IconMapPin size={14} color="#6b7280" /><Text size="sm" c="dimmed">{day.location}</Text></Group>
+              <Group gap={4}><IconCalendar size={14} color="var(--mantine-color-gray-5)" /><Text size="sm" c="dimmed">{day.date}</Text></Group>
+              <Group gap={4}><IconMapPin size={14} color="var(--mantine-color-gray-5)" /><Text size="sm" c="dimmed">{day.location}</Text></Group>
               {day.schedule.length > 0 && (
                 <Badge size="sm" variant="light" color="red">{day.schedule.length} activities</Badge>
               )}
             </Group>
             {day.notes && (
-              <Text size="sm" c="dimmed" mt="sm" pt="sm" style={{ borderTop: '1px solid #e5e7eb' }}>{day.notes}</Text>
+              <Text size="sm" c="dimmed" mt="sm" pt="sm" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>{day.notes}</Text>
             )}
           </Card>
 

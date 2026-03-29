@@ -5,28 +5,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconSearch, IconMapPin, IconUser, IconExternalLink, IconFilter, IconX } from '@tabler/icons-react';
-
-const CAT_COLORS = {
-  ramen: 'orange', noodle: 'orange', tsukemen: 'orange', soba: 'orange',
-  sushi: 'blue', eel: 'blue', tempura: 'blue',
-  coffee: 'yellow', cafe: 'yellow',
-  bbq: 'red', katsu: 'red', wagyu: 'red', beef: 'red', jbbq: 'red',
-  bar: 'grape', wine: 'grape', drinks: 'grape', izakaya: 'grape',
-  pancake: 'pink', dessert: 'pink', ice: 'pink', sweet: 'pink', crepe: 'pink', pastry: 'pink', taiyaki: 'pink', bakery: 'pink',
-};
-
-function getCatColor(cat) {
-  const c = cat.toLowerCase();
-  for (const [key, color] of Object.entries(CAT_COLORS)) {
-    if (c.includes(key)) return color;
-  }
-  return 'gray';
-}
-
-function splitNames(name) {
-  if (!name) return [];
-  return name.split(/\s*[/,]\s*/).map(n => n.trim()).filter(Boolean);
-}
+import { getCatColor, splitNames } from '../utils';
 
 export default function FoodMenu({ data }) {
   const [search, setSearch] = useState('');
@@ -123,9 +102,7 @@ export default function FoodMenu({ data }) {
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
           {filtered.map((f, i) => (
             <Card key={i} shadow="sm" padding="md" radius="md" withBorder
-              style={{ transition: 'transform 0.2s, box-shadow 0.2s' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+              className="card-hoverable"
             >
               <Group justify="space-between" align="flex-start" wrap="nowrap" mb="xs">
                 <Text fw={600} size="sm" style={{ flex: 1, lineHeight: 1.4 }}>{f.details}</Text>

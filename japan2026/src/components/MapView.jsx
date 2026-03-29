@@ -578,7 +578,7 @@ export default function MapViewComponent() {
             <div style={{ padding: '0 12px' }}>
               <Card shadow="md" radius="md" padding="sm"
                 style={{
-                  border: `2px solid ${selectedPin ? displayPin.color : '#b91c1c'}`,
+                  border: `1px solid ${selectedPin ? displayPin.color : 'var(--mantine-color-red-6)'}`,
                   maxWidth: 420, margin: '0 auto',
                 }}
               >
