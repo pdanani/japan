@@ -159,13 +159,26 @@ export default function MapViewComponent() {
       },
       properties: {
         index: i,
+        kind: pin.kind,
         label: pin.number ? String(pin.number) : (pin.kind === 'tabelog' ? '★' : '♥'),
         color: pin.color,
-        isActive: (pin.kind === 'itinerary' && pin.index === activePin)
-          || (selectedPin && pin.key === selectedPin.key),
+        isActive: (pin.kind === 'itinerary' && pin.index === activePin),
       },
     })),
-  }), [allVisiblePins, activePin, selectedPin]);
+  }), [allVisiblePins, activePin]);
+
+  // Separate highlight GeoJSON — only rebuilds when selectedPin changes, doesn't touch main pins
+  const highlightGeoJSON = useMemo(() => {
+    if (!selectedPin) return { type: 'FeatureCollection', features: [] };
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [selectedPin.coord.longitude, selectedPin.coord.latitude] },
+        properties: { color: selectedPin.color },
+      }],
+    };
+  }, [selectedPin]);
 
   const routeGeoJSON = useMemo(() => {
     if (!layers.itinerary || itineraryPins.length < 2) return null;
@@ -210,38 +223,44 @@ export default function MapViewComponent() {
 
       // Pin layers — circle + label
       map.current.addSource('pins', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      // Active ring
-      map.current.addLayer({
-        id: 'pins-active-ring', type: 'circle', source: 'pins',
-        filter: ['==', ['get', 'isActive'], true],
-        paint: {
-          'circle-radius': 20,
-          'circle-color': 'rgba(250,204,21,0.3)',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#facc15',
-        },
-      });
-      // Base circles
+      // Base circles — itinerary pins large, tabelog/saves smaller
       map.current.addLayer({
         id: 'pins-circle', type: 'circle', source: 'pins',
         paint: {
-          'circle-radius': ['case', ['get', 'isActive'], 16, 14],
+          'circle-radius': [
+            'case',
+            ['get', 'isActive'], 20,
+            ['==', ['get', 'kind'], 'itinerary'], 16,
+            10,
+          ],
           'circle-color': ['get', 'color'],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': ['case', ['get', 'isActive'], 3, 1.5],
+          'circle-stroke-color': ['case', ['get', 'isActive'], '#facc15', '#ffffff'],
         },
       });
-      // Labels
+      // Labels — all pins get their label (numbers for itinerary, ★ for tabelog, ♥ for saves)
       map.current.addLayer({
         id: 'pins-label', type: 'symbol', source: 'pins',
         layout: {
           'text-field': ['get', 'label'],
-          'text-size': 12,
+          'text-size': ['case', ['==', ['get', 'kind'], 'itinerary'], 12, 8],
           'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
           'text-allow-overlap': true,
           'icon-allow-overlap': true,
         },
         paint: { 'text-color': '#ffffff' },
+      });
+
+      // Highlight ring — separate source, only for selected tabelog/saved pin
+      map.current.addSource('highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.current.addLayer({
+        id: 'highlight-ring', type: 'circle', source: 'highlight',
+        paint: {
+          'circle-radius': 14,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#facc15',
+        },
       });
 
       // Click handler — show pin in bottom card (uses ref for current data)
@@ -259,10 +278,15 @@ export default function MapViewComponent() {
           setSelectedPin(pin);
         }
 
-        map.current.flyTo({
-          center: e.features[0].geometry.coordinates,
-          zoom: 15, duration: 800,
-        });
+        // Only fly/zoom for itinerary pins; tabelog/saves just highlight in place
+        if (pin.kind === 'itinerary') {
+          const currentZoom = map.current.getZoom();
+          map.current.flyTo({
+            center: e.features[0].geometry.coordinates,
+            zoom: Math.max(currentZoom, 15),
+            duration: 600,
+          });
+        }
       });
       map.current.on('mouseenter', 'pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer'; });
       map.current.on('mouseleave', 'pins-circle', () => { map.current.getCanvas().style.cursor = ''; });
@@ -288,9 +312,10 @@ export default function MapViewComponent() {
       map.current.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#b91c1c', 'line-width': 3.5 }, layout: { 'line-join': 'round', 'line-cap': 'round' } });
       // Pins
       map.current.addSource('pins', { type: 'geojson', data: pinsGeoJSON });
-      map.current.addLayer({ id: 'pins-active-ring', type: 'circle', source: 'pins', filter: ['==', ['get', 'isActive'], true], paint: { 'circle-radius': 20, 'circle-color': 'rgba(250,204,21,0.3)', 'circle-stroke-width': 2, 'circle-stroke-color': '#facc15' } });
-      map.current.addLayer({ id: 'pins-circle', type: 'circle', source: 'pins', paint: { 'circle-radius': ['case', ['get', 'isActive'], 16, 14], 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' } });
-      map.current.addLayer({ id: 'pins-label', type: 'symbol', source: 'pins', layout: { 'text-field': ['get', 'label'], 'text-size': 12, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'icon-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
+      map.current.addLayer({ id: 'pins-circle', type: 'circle', source: 'pins', paint: { 'circle-radius': ['case', ['get', 'isActive'], 20, ['==', ['get', 'kind'], 'itinerary'], 16, 10], 'circle-color': ['get', 'color'], 'circle-stroke-width': ['case', ['get', 'isActive'], 3, 1.5], 'circle-stroke-color': ['case', ['get', 'isActive'], '#facc15', '#ffffff'] } });
+      map.current.addLayer({ id: 'pins-label', type: 'symbol', source: 'pins', layout: { 'text-field': ['get', 'label'], 'text-size': ['case', ['==', ['get', 'kind'], 'itinerary'], 12, 8], 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'icon-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
+      map.current.addSource('highlight', { type: 'geojson', data: highlightGeoJSON });
+      map.current.addLayer({ id: 'highlight-ring', type: 'circle', source: 'highlight', paint: { 'circle-radius': 14, 'circle-color': ['get', 'color'], 'circle-stroke-width': 3, 'circle-stroke-color': '#facc15' } });
       // Update with current data
       const routeSrc = map.current.getSource('route');
       if (routeSrc) routeSrc.setData(showRoute && routeGeoJSON ? routeGeoJSON : { type: 'FeatureCollection', features: [] });
@@ -311,6 +336,13 @@ export default function MapViewComponent() {
     const src = map.current.getSource('pins');
     if (src) src.setData(pinsGeoJSON);
   }, [mapReady, pinsGeoJSON]);
+
+  // Update highlight ring (selected tabelog/saved pin)
+  useEffect(() => {
+    if (!map.current || !mapReady) return;
+    const src = map.current.getSource('highlight');
+    if (src) src.setData(highlightGeoJSON);
+  }, [mapReady, highlightGeoJSON]);
 
   // Fit map only when day changes (not on layer/filter toggles)
   useEffect(() => {
