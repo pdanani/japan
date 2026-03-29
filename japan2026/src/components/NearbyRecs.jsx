@@ -23,8 +23,10 @@ const PLACE_TYPE_COLORS = { food: 'orange', shopping: 'pink', site: 'green', act
 
 function parsePrice(p) {
   if (!p) return 0;
-  const m = p.match(/[\d,]+/);
-  return m ? parseInt(m[0].replace(/,/g, ''), 10) : 0;
+  const matches = p.match(/[\d,]+/g);
+  if (!matches) return 0;
+  const nums = matches.map(m => parseInt(m.replace(/,/g, ''), 10)).filter(n => n > 0);
+  return nums.length ? Math.min(...nums) : 0;
 }
 
 function getCatColor(cat) {
