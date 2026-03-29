@@ -159,8 +159,8 @@ function AppInner({ linking, TabsScreen }) {
             return {
               title: day ? `Day ${day.day} — Nearby Recs` : 'Nearby Recs',
               headerStyle: { backgroundColor: themeColors.card },
-              headerTintColor: themeColors.primary,
-              headerTitleStyle: { fontWeight: '600', fontSize: 16 },
+              headerTintColor: themeColors.text,
+              headerTitleStyle: { fontWeight: '600', fontSize: 16, color: themeColors.text },
               headerShadowVisible: false,
               headerBackTitle: 'Timeline',
             };
