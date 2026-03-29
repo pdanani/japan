@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MantineProvider, createTheme, Container, Notification, ActionIcon, Tooltip } from '@mantine/core';
 import {
-  IconClock, IconToolsKitchen2, IconMap2, IconChecklist, IconAlertTriangle, IconRefresh, IconMapPin,
+  IconClock, IconToolsKitchen2, IconMap2, IconAlertTriangle, IconRefresh, IconMapPin,
   IconDots, IconArrowUp, IconMoon, IconSun,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
@@ -9,7 +9,6 @@ import Timeline from './components/Timeline';
 import MapViewComponent from './components/MapView';
 import FoodMenu from './components/FoodMenu';
 import Activities from './components/Activities';
-import Planning from './components/Planning';
 import TravelGroup from './components/TravelGroup';
 import NearbyRecs from './components/NearbyRecs';
 import { SHEET_ID, initialFood, initialActivities } from './data/tripData';
@@ -23,7 +22,6 @@ const PRIMARY_TABS = [
 const OVERFLOW_TABS = [
   { key: 'food', label: 'Food', icon: IconToolsKitchen2 },
   { key: 'activities', label: 'Activities', icon: IconMap2 },
-  { key: 'planning', label: 'Planning', icon: IconChecklist },
   { key: 'group', label: 'Allergies', icon: IconAlertTriangle },
 ];
 
@@ -259,7 +257,6 @@ export default function App() {
           )}
           {activeTab === 'food' && <FoodMenu data={food} />}
           {activeTab === 'activities' && <Activities data={activities} />}
-          {activeTab === 'planning' && <Planning />}
           {activeTab === 'group' && <TravelGroup />}
         </Container>
       )}

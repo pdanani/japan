@@ -33,7 +33,7 @@ const SOURCE_CONFIG = {
 
 export default function TimelineScreen() {
   const navigation = useNavigation();
-  const { colors: tc } = useTheme();
+  const { colors: tc, isDark, toggleDark } = useTheme();
   const [selected, setSelected] = useState(1);
 
   const day = timeline.find(d => d.day === selected);
@@ -44,8 +44,15 @@ export default function TimelineScreen() {
   return (
     <ScrollView style={[styles.screen, { backgroundColor: tc.bg }]} contentContainerStyle={{ paddingBottom: 100 }}>
       {/* Header */}
-      <Text style={[styles.title, { color: tc.text }]}>Trip Timeline</Text>
-      <Text style={[styles.subtitle, { color: tc.textMuted }]}>Day-by-day itinerary</Text>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={[styles.title, { color: tc.text }]}>Trip Timeline</Text>
+          <Text style={[styles.subtitle, { color: tc.textMuted }]}>Day-by-day itinerary</Text>
+        </View>
+        <TouchableOpacity onPress={toggleDark} style={[styles.toggleBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f3f4f6' }]} activeOpacity={0.7}>
+          <Ionicons name={isDark ? 'sunny' : 'moon'} size={18} color={isDark ? '#facc15' : '#6b7280'} />
+        </TouchableOpacity>
+      </View>
 
       {/* Type legend */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
@@ -192,8 +199,13 @@ export default function TimelineScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 54 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 0 },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 2 },
   subtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
+  toggleBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    justifyContent: 'center', alignItems: 'center', marginTop: 2,
+  },
   row: { flexDirection: 'row', alignItems: 'center' },
   dayBtn: {
     minWidth: 78, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12,

@@ -557,18 +557,18 @@ export default function MapViewComponent() {
           {/* Carousel arrows — only for itinerary, hidden when viewing a non-itinerary pin */}
           {!selectedPin && carouselPins.length > 0 && (
             <Group justify="center" gap="sm" mb={8}>
-              <ActionIcon variant="white" radius="xl" size="md"
+              <ActionIcon variant="default" radius="xl" size="md"
                 onClick={() => focusPin(activePin - 1)} disabled={activePin === 0}
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)', background: ov.bg, color: ov.text, borderColor: ov.border }}>
                 <IconChevronLeft size={16} />
               </ActionIcon>
-              <Badge size="lg" variant="white" radius="md"
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.1)', fontWeight: 700 }}>
+              <Badge size="lg" variant="default" radius="md"
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.1)', fontWeight: 700, background: ov.bg, color: ov.text, borderColor: ov.border }}>
                 {activePin + 1} / {carouselPins.length}
               </Badge>
-              <ActionIcon variant="white" radius="xl" size="md"
+              <ActionIcon variant="default" radius="xl" size="md"
                 onClick={() => focusPin(activePin + 1)} disabled={activePin === carouselPins.length - 1}
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)', background: ov.bg, color: ov.text, borderColor: ov.border }}>
                 <IconChevronRight size={16} />
               </ActionIcon>
             </Group>

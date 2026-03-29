@@ -11,7 +11,6 @@ import Papa from 'papaparse';
 import TimelineScreen from './src/screens/TimelineScreen';
 import FoodScreen from './src/screens/FoodScreen';
 import ActivitiesScreen from './src/screens/ActivitiesScreen';
-import PlanningScreen from './src/screens/PlanningScreen';
 import GroupScreen from './src/screens/GroupScreen';
 import MapScreen from './src/screens/MapScreen';
 import NearbyRecsScreen from './src/screens/NearbyRecsScreen';
@@ -27,7 +26,6 @@ const TAB_ICONS = {
   Map: { active: 'navigate-circle', inactive: 'navigate-circle-outline' },
   Food: { active: 'restaurant', inactive: 'restaurant-outline' },
   Activities: { active: 'compass', inactive: 'compass-outline' },
-  Planning: { active: 'checkbox', inactive: 'checkbox-outline' },
   Allergies: { active: 'alert-circle', inactive: 'alert-circle-outline' },
 };
 
@@ -112,7 +110,6 @@ function App() {
         <Tab.Screen name="Activities">
           {() => <ActivitiesScreen data={activities} />}
         </Tab.Screen>
-        <Tab.Screen name="Planning" component={PlanningScreen} />
         <Tab.Screen name="Allergies" component={GroupScreen} />
       </Tab.Navigator>
     );
