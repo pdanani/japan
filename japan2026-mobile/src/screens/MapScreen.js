@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Platform, Dimensions, FlatList, Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 
 let MapView, Marker, Polyline, Callout;
 if (Platform.OS !== 'web') {
@@ -91,21 +92,6 @@ export default function MapScreen() {
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
 
-  const cuisineTags = useMemo(() => {
-    const cats = new Map();
-    tabelogList.forEach(r => {
-      (r.cuisine || '').split(/[,/]/).forEach(c => {
-        const t = c.trim();
-        if (t && t.length > 1) {
-          const key = t.toLowerCase();
-          if (japaneseOnly && NON_JAPANESE.some(nj => key.includes(nj))) return;
-          if (!cats.has(key)) cats.set(key, t);
-        }
-      });
-    });
-    return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [tabelogList, japaneseOnly]);
-
   const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0;
   const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); };
 
@@ -126,6 +112,21 @@ export default function MapScreen() {
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
+
+  const cuisineTags = useMemo(() => {
+    const cats = new Map();
+    tabelogList.forEach(r => {
+      (r.cuisine || '').split(/[,/]/).forEach(c => {
+        const t = c.trim();
+        if (t && t.length > 1) {
+          const key = t.toLowerCase();
+          if (japaneseOnly && NON_JAPANESE.some(nj => key.includes(nj))) return;
+          if (!cats.has(key)) cats.set(key, t);
+        }
+      });
+    });
+    return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [tabelogList, japaneseOnly]);
 
   const toggleLayer = (key) => setLayers(prev => ({ ...prev, [key]: !prev[key] }));
 
