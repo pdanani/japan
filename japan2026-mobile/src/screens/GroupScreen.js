@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
+import { useTheme } from '../ThemeContext';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import { travelers } from '../data/tripData';
@@ -13,13 +14,14 @@ function getInitials(name) {
 }
 
 export default function GroupScreen() {
+  const { colors: tc } = useTheme();
   const withAllergies = travelers.filter(t => t.allergies);
   const withoutAllergies = travelers.filter(t => !t.allergies);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 100 }}>
-      <Text style={styles.title}>Allergies</Text>
-      <Text style={styles.subtitle}>
+    <ScrollView style={[styles.screen, { backgroundColor: tc.bg }]} contentContainerStyle={{ paddingBottom: 100 }}>
+      <Text style={[styles.title, { color: tc.text }]}>Allergies</Text>
+      <Text style={[styles.subtitle, { color: tc.textMuted }]}>
         {withAllergies.length} of {travelers.length} travelers have allergies — keep these in mind when choosing restaurants!
       </Text>
 
@@ -31,7 +33,7 @@ export default function GroupScreen() {
                 <Text style={styles.avatarText}>{getInitials(t.name)}</Text>
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={styles.name}>{t.name}</Text>
+                <Text style={[styles.name, { color: tc.text }]}>{t.name}</Text>
                 <View style={{ marginTop: 8 }}>
                   <Badge
                     label={t.allergies}
@@ -46,8 +48,8 @@ export default function GroupScreen() {
         </Card>
       ))}
 
-      <View style={styles.divider} />
-      <Text style={styles.noAllergies}>
+      <View style={[styles.divider, { backgroundColor: tc.border }]} />
+      <Text style={[styles.noAllergies, { color: tc.textMuted }]}>
         No allergies: {withoutAllergies.map(t => t.name).join(', ')}
       </Text>
     </ScrollView>
@@ -55,7 +57,7 @@ export default function GroupScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg, padding: 16 },
+  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 54 },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 2 },
   subtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 16, lineHeight: 18 },
   row: { flexDirection: 'row', alignItems: 'center' },

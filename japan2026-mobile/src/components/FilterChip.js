@@ -1,8 +1,10 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { badgeColor, colors } from '../theme';
+import { useTheme } from '../ThemeContext';
 
 export default function FilterChip({ label, color = 'gray', selected, onPress }) {
+  const { colors: tc } = useTheme();
   const c = badgeColor(color);
   return (
     <TouchableOpacity
@@ -11,7 +13,7 @@ export default function FilterChip({ label, color = 'gray', selected, onPress })
         styles.chip,
         selected
           ? { backgroundColor: c.text, borderColor: c.text }
-          : { backgroundColor: 'transparent', borderColor: colors.border },
+          : { backgroundColor: 'transparent', borderColor: tc.border },
       ]}
       activeOpacity={0.7}
     >

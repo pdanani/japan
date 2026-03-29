@@ -1,11 +1,14 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { colors } from '../theme';
+import { useTheme } from '../ThemeContext';
 
 export default function Card({ children, style, borderLeftColor }) {
+  const { colors: tc } = useTheme();
   return (
     <View style={[
       styles.card,
+      { backgroundColor: tc.card, borderColor: tc.border },
       borderLeftColor && { borderLeftWidth: 3, borderLeftColor },
       style,
     ]}>

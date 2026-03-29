@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
+import { useTheme } from '../ThemeContext';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import SearchBar from '../components/SearchBar';
@@ -31,6 +32,7 @@ function splitNames(name) {
 }
 
 export default function FoodScreen({ data }) {
+  const { colors: tc } = useTheme();
   const [search, setSearch] = useState('');
   const [locFilter, setLocFilter] = useState('All');
   const [selectedPeople, setSelectedPeople] = useState([]);
@@ -58,9 +60,9 @@ export default function FoodScreen({ data }) {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 100 }}>
-      <Text style={styles.title}>Food Menu</Text>
-      <Text style={styles.subtitle}>
+    <ScrollView style={[styles.screen, { backgroundColor: tc.bg }]} contentContainerStyle={{ paddingBottom: 100 }}>
+      <Text style={[styles.title, { color: tc.text }]}>Food Menu</Text>
+      <Text style={[styles.subtitle, { color: tc.textMuted }]}>
         {filtered.length} restaurant{filtered.length !== 1 ? 's' : ''} across Japan
       </Text>
 
@@ -102,7 +104,7 @@ export default function FoodScreen({ data }) {
 
       {filtered.length === 0 ? (
         <Card>
-          <Text style={{ textAlign: 'center', color: colors.textMuted, paddingVertical: 16 }}>
+          <Text style={{ textAlign: 'center', color: tc.textMuted, paddingVertical: 16 }}>
             No restaurants match your filters.
           </Text>
         </Card>
@@ -110,7 +112,7 @@ export default function FoodScreen({ data }) {
         filtered.map((f, i) => (
           <Card key={i}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle} numberOfLines={2}>{f.details}</Text>
+              <Text style={[styles.cardTitle, { color: tc.text }]} numberOfLines={2}>{f.details}</Text>
               <Badge label={f.category} color={getCatColor(f.category)} size="xs" />
             </View>
             <View style={[styles.row, { marginTop: 6, flexWrap: 'wrap', gap: 4 }]}>
@@ -120,9 +122,9 @@ export default function FoodScreen({ data }) {
                 <Badge key={n} label={n} color="violet" size="xs" />
               ))}
             </View>
-            {f.notes ? <Text style={styles.notes} numberOfLines={3}>{f.notes}</Text> : null}
+            {f.notes ? <Text style={[styles.notes, { color: tc.textSecondary }]} numberOfLines={3}>{f.notes}</Text> : null}
             {f.interested ? (
-              <Text style={styles.notes}>
+              <Text style={[styles.notes, { color: tc.textSecondary }]}>
                 <Text style={{ fontWeight: '600', color: '#7c3aed' }}>Also interested: </Text>
                 {f.interested}
               </Text>
@@ -143,7 +145,7 @@ export default function FoodScreen({ data }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg, padding: 16 },
+  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 54 },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 2 },
   subtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
   row: { flexDirection: 'row', alignItems: 'center' },

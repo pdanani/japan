@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
+import { useTheme } from '../ThemeContext';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import SearchBar from '../components/SearchBar';
@@ -28,6 +29,7 @@ function splitNames(name) {
 }
 
 export default function ActivitiesScreen({ data }) {
+  const { colors: tc } = useTheme();
   const [search, setSearch] = useState('');
   const [locFilter, setLocFilter] = useState('All');
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -61,9 +63,9 @@ export default function ActivitiesScreen({ data }) {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 100 }}>
-      <Text style={styles.title}>Activities</Text>
-      <Text style={styles.subtitle}>
+    <ScrollView style={[styles.screen, { backgroundColor: tc.bg }]} contentContainerStyle={{ paddingBottom: 100 }}>
+      <Text style={[styles.title, { color: tc.text }]}>Activities</Text>
+      <Text style={[styles.subtitle, { color: tc.textMuted }]}>
         {filtered.length} thing{filtered.length !== 1 ? 's' : ''} to see, do, and explore
       </Text>
 
@@ -89,7 +91,7 @@ export default function ActivitiesScreen({ data }) {
       </ScrollView>
 
       {/* Category filter */}
-      <Text style={styles.filterLabel}>Type</Text>
+      <Text style={[styles.filterLabel, { color: tc.textMuted }]}>Type</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
         <View style={styles.chipRow}>
           {categories.map(c => (
@@ -105,7 +107,7 @@ export default function ActivitiesScreen({ data }) {
       </ScrollView>
 
       {/* People filter */}
-      <Text style={styles.filterLabel}>Suggested by</Text>
+      <Text style={[styles.filterLabel, { color: tc.textMuted }]}>Suggested by</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
         <View style={styles.chipRow}>
           {people.map(p => (
@@ -122,7 +124,7 @@ export default function ActivitiesScreen({ data }) {
 
       {filtered.length === 0 ? (
         <Card>
-          <Text style={{ textAlign: 'center', color: colors.textMuted, paddingVertical: 16 }}>
+          <Text style={{ textAlign: 'center', color: tc.textMuted, paddingVertical: 16 }}>
             No activities match your filters.
           </Text>
         </Card>
@@ -130,7 +132,7 @@ export default function ActivitiesScreen({ data }) {
         filtered.map((a, i) => (
           <Card key={i}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle} numberOfLines={2}>{a.details}</Text>
+              <Text style={[styles.cardTitle, { color: tc.text }]} numberOfLines={2}>{a.details}</Text>
               <Badge label={a.category} color={getCatColor(a.category)} size="xs" />
             </View>
             <View style={[styles.row, { marginTop: 6, flexWrap: 'wrap', gap: 4 }]}>
@@ -139,9 +141,9 @@ export default function ActivitiesScreen({ data }) {
                 <Badge key={n} label={n} color="violet" size="xs" />
               ))}
             </View>
-            {a.notes ? <Text style={styles.notes} numberOfLines={3}>{a.notes}</Text> : null}
+            {a.notes ? <Text style={[styles.notes, { color: tc.textSecondary }]} numberOfLines={3}>{a.notes}</Text> : null}
             {a.interested ? (
-              <Text style={styles.notes}>
+              <Text style={[styles.notes, { color: tc.textSecondary }]}>
                 <Text style={{ fontWeight: '600', color: '#7c3aed' }}>Also interested: </Text>
                 {a.interested}
               </Text>
@@ -162,7 +164,7 @@ export default function ActivitiesScreen({ data }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg, padding: 16 },
+  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 54 },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 2 },
   subtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
   row: { flexDirection: 'row', alignItems: 'center' },

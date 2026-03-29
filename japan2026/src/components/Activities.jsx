@@ -80,7 +80,7 @@ export default function Activities({ data }) {
       </Group>
 
       <Collapse in={filtersOpen}>
-        <Card withBorder radius="md" p="md" mb="lg" bg="gray.0">
+        <Card withBorder radius="md" p="md" mb="lg">
           <Stack gap="sm">
             <TextInput
               placeholder="Search activities, sites, shops..."
@@ -128,7 +128,7 @@ export default function Activities({ data }) {
       </Collapse>
 
       {filtered.length === 0 ? (
-        <Card withBorder radius="md" p="xl" ta="center" bg="gray.0">
+        <Card withBorder radius="md" p="xl" ta="center">
           <Text c="dimmed">No activities match your filters.</Text>
         </Card>
       ) : (

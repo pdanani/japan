@@ -3,10 +3,12 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   Text, Badge, Group, Card, ScrollArea, UnstyledButton, ActionIcon, Tooltip,
+  Switch, Slider,
 } from '@mantine/core';
 import {
   IconStarFilled, IconBookmark, IconNavigation,
   IconChevronLeft, IconChevronRight, IconRoute, IconTimeline,
+  IconFilter, IconX,
 } from '@tabler/icons-react';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
@@ -17,6 +19,18 @@ import {
 import { MAPBOX_TOKEN } from '../data/mapConfig';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
+
+const NON_JAPANESE = [
+  'italian', 'french', 'indian', 'chinese', 'sichuan', 'korean',
+  'thai', 'vietnamese', 'spanish', 'american', 'peruvian',
+  'nepalese', 'sri lankan', 'bistro', 'pizza', 'pasta', 'steak',
+];
+
+function parsePrice(p) {
+  if (!p) return 0;
+  const m = p.match(/[\d,]+/);
+  return m ? parseInt(m[0].replace(/,/g, ''), 10) : 0;
+}
 
 const TYPE_CONFIG = {
   transport: { color: '#7c3aed', label: 'Transport' },
@@ -29,13 +43,31 @@ const TYPE_CONFIG = {
 };
 
 export default function MapViewComponent() {
+  const isDark = document.querySelector('[data-theme="dark"]') !== null;
+  const ov = {
+    bg: isDark ? '#1c1c1e' : '#fff',
+    text: isDark ? '#f5f5f5' : '#1f2937',
+    textDim: isDark ? '#a1a1aa' : '#6b7280',
+    border: isDark ? '#2c2c2e' : '#e5e7eb',
+    overlay: isDark ? 'rgba(17,17,17,0.92)' : 'rgba(255,255,255,0.92)',
+  };
   const mapContainer = useRef(null);
   const map = useRef(null);
+  const pinsRef = useRef([]); // always-current reference to allVisiblePins
   const [selected, setSelected] = useState(1);
   const [activePin, setActivePin] = useState(0);
+  const [selectedPin, setSelectedPin] = useState(null);
   const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
   const [showRoute, setShowRoute] = useState(true);
   const [mapReady, setMapReady] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [maxPrice, setMaxPrice] = useState(15000);
+  const [minRating, setMinRating] = useState('all');
+  const [japaneseOnly, setJapaneseOnly] = useState(false);
+  const [cuisineFilter, setCuisineFilter] = useState([]);
+
+  const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0;
+  const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); };
 
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
@@ -52,13 +84,33 @@ export default function MapViewComponent() {
     }).filter(Boolean);
   }, [day]);
 
+  const cuisineTags = useMemo(() => {
+    const cats = new Map();
+    tabelogList.forEach(r => {
+      (r.cuisine || '').split(/[,/]/).forEach(c => {
+        const t = c.trim();
+        if (t && t.length > 1) {
+          const key = t.toLowerCase();
+          if (japaneseOnly && NON_JAPANESE.some(nj => key.includes(nj))) return;
+          if (!cats.has(key)) cats.set(key, t);
+        }
+      });
+    });
+    return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [tabelogList, japaneseOnly]);
+
   const tabelogPins = useMemo(() => {
-    return tabelogList.map((r, i) => {
+    let filtered = tabelogList;
+    if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
+    if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
+    if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
+    if (japaneseOnly) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });
+    return filtered.map((r, i) => {
       const coord = getTabelogCoord(r);
       if (!coord) return null;
       return { ...r, coord, key: `tab-${i}` };
     }).filter(Boolean);
-  }, [tabelogList]);
+  }, [tabelogList, maxPrice, minRating, cuisineFilter, japaneseOnly]);
 
   const savedPins = useMemo(() => {
     return savedList.map((p, i) => {
@@ -95,6 +147,9 @@ export default function MapViewComponent() {
     }));
   }, [layers.itinerary, itineraryPins]);
 
+  // Keep ref in sync so click handler always has current data
+  pinsRef.current = allVisiblePins;
+
   const pinsGeoJSON = useMemo(() => ({
     type: 'FeatureCollection',
     features: allVisiblePins.map((pin, i) => ({
@@ -107,10 +162,11 @@ export default function MapViewComponent() {
         index: i,
         label: pin.number ? String(pin.number) : (pin.kind === 'tabelog' ? '★' : '♥'),
         color: pin.color,
-        isActive: pin.kind === 'itinerary' && pin.index === activePin,
+        isActive: (pin.kind === 'itinerary' && pin.index === activePin)
+          || (selectedPin && pin.key === selectedPin.key),
       },
     })),
-  }), [allVisiblePins, activePin]);
+  }), [allVisiblePins, activePin, selectedPin]);
 
   const routeGeoJSON = useMemo(() => {
     if (!layers.itinerary || itineraryPins.length < 2) return null;
@@ -129,7 +185,7 @@ export default function MapViewComponent() {
     const dayCenter = day ? getDayCenter(day) : { latitude: 35.6762, longitude: 139.6503 };
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
       center: [dayCenter.longitude, dayCenter.latitude],
       zoom: 13,
     });
@@ -189,20 +245,25 @@ export default function MapViewComponent() {
         paint: { 'text-color': '#ffffff' },
       });
 
-      // Click handler on pin circles
+      // Click handler — show pin in bottom card (uses ref for current data)
       map.current.on('click', 'pins-circle', (e) => {
         const props = e.features?.[0]?.properties;
-        if (props) {
-          // Only select itinerary pins in carousel
-          const pin = allVisiblePins[props.index];
-          if (pin?.kind === 'itinerary') {
-            setActivePin(pin.index);
-          }
-          map.current.flyTo({
-            center: e.features[0].geometry.coordinates,
-            zoom: 15, duration: 800,
-          });
+        if (!props) return;
+
+        const pin = pinsRef.current[props.index];
+        if (!pin) return;
+
+        if (pin.kind === 'itinerary') {
+          setActivePin(pin.index);
+          setSelectedPin(null);
+        } else {
+          setSelectedPin(pin);
         }
+
+        map.current.flyTo({
+          center: e.features[0].geometry.coordinates,
+          zoom: 15, duration: 800,
+        });
       });
       map.current.on('mouseenter', 'pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer'; });
       map.current.on('mouseleave', 'pins-circle', () => { map.current.getCanvas().style.cursor = ''; });
@@ -212,6 +273,30 @@ export default function MapViewComponent() {
 
     return () => { map.current?.remove(); map.current = null; };
   }, []);
+
+  // Swap map style when dark mode changes
+  const prevDarkRef = useRef(isDark);
+  useEffect(() => {
+    if (!map.current || !mapReady || isDark === prevDarkRef.current) return;
+    prevDarkRef.current = isDark;
+    const newStyle = isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
+    map.current.setStyle(newStyle);
+    // Re-add sources and layers after style loads
+    map.current.once('style.load', () => {
+      // Route
+      map.current.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.current.addLayer({ id: 'route-glow', type: 'line', source: 'route', paint: { 'line-color': 'rgba(185,28,28,0.12)', 'line-width': 10 }, layout: { 'line-join': 'round', 'line-cap': 'round' } });
+      map.current.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#b91c1c', 'line-width': 3.5 }, layout: { 'line-join': 'round', 'line-cap': 'round' } });
+      // Pins
+      map.current.addSource('pins', { type: 'geojson', data: pinsGeoJSON });
+      map.current.addLayer({ id: 'pins-active-ring', type: 'circle', source: 'pins', filter: ['==', ['get', 'isActive'], true], paint: { 'circle-radius': 20, 'circle-color': 'rgba(250,204,21,0.3)', 'circle-stroke-width': 2, 'circle-stroke-color': '#facc15' } });
+      map.current.addLayer({ id: 'pins-circle', type: 'circle', source: 'pins', paint: { 'circle-radius': ['case', ['get', 'isActive'], 16, 14], 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' } });
+      map.current.addLayer({ id: 'pins-label', type: 'symbol', source: 'pins', layout: { 'text-field': ['get', 'label'], 'text-size': 12, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'icon-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
+      // Update with current data
+      const routeSrc = map.current.getSource('route');
+      if (routeSrc) routeSrc.setData(showRoute && routeGeoJSON ? routeGeoJSON : { type: 'FeatureCollection', features: [] });
+    });
+  }, [isDark, mapReady]);
 
   // Update route data
   useEffect(() => {
@@ -228,26 +313,28 @@ export default function MapViewComponent() {
     if (src) src.setData(pinsGeoJSON);
   }, [mapReady, pinsGeoJSON]);
 
-  // Fit map on day/layer change
+  // Fit map only when day changes (not on layer/filter toggles)
   useEffect(() => {
     if (!map.current || !mapReady) return;
-    if (allVisiblePins.length > 1) {
+    const dayPins = itineraryPins;
+    if (dayPins.length > 1) {
       const bounds = new mapboxgl.LngLatBounds();
-      allVisiblePins.forEach(p => bounds.extend([p.coord.longitude, p.coord.latitude]));
+      dayPins.forEach(p => bounds.extend([p.coord.longitude, p.coord.latitude]));
       map.current.fitBounds(bounds, { padding: { top: 80, right: 60, bottom: 160, left: 60 }, duration: 1000 });
-    } else if (allVisiblePins.length === 1) {
-      const p = allVisiblePins[0];
-      map.current.flyTo({ center: [p.coord.longitude, p.coord.latitude], zoom: 15, duration: 1000 });
+    } else if (dayPins.length === 1) {
+      map.current.flyTo({ center: [dayPins[0].coord.longitude, dayPins[0].coord.latitude], zoom: 14, duration: 1000 });
     } else if (day) {
       const c = getDayCenter(day);
       map.current.flyTo({ center: [c.longitude, c.latitude], zoom: 13, duration: 1000 });
     }
     setActivePin(0);
-  }, [selected, layers, mapReady, allVisiblePins.length]);
+    setSelectedPin(null);
+  }, [selected, mapReady]);
 
   const focusPin = useCallback((idx) => {
     if (idx < 0 || idx >= carouselPins.length) return;
     setActivePin(idx);
+    setSelectedPin(null); // back to carousel mode
     const pin = carouselPins[idx];
     if (pin?.coord && map.current) {
       map.current.flyTo({
@@ -261,10 +348,10 @@ export default function MapViewComponent() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${pin.coord.latitude},${pin.coord.longitude}`, '_blank');
   };
 
-  const currentPin = carouselPins[activePin];
+  const displayPin = selectedPin || carouselPins[activePin];
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100dvh - 60px)', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: '100%', height: 'calc(100dvh - 56px - env(safe-area-inset-top, 0px))', overflow: 'hidden' }}>
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
 
       {/* Day selector */}
@@ -280,9 +367,9 @@ export default function MapViewComponent() {
                   style={{
                     flexShrink: 0, minWidth: 60, textAlign: 'center',
                     padding: '6px 12px', borderRadius: 20,
-                    background: active ? '#b91c1c' : '#fff',
-                    color: active ? '#fff' : '#1f2937',
-                    border: `1.5px solid ${active ? '#b91c1c' : '#e5e7eb'}`,
+                    background: active ? '#b91c1c' : ov.bg,
+                    color: active ? '#fff' : ov.text,
+                    border: `1.5px solid ${active ? '#b91c1c' : ov.border}`,
                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                     transition: 'all 0.2s',
                   }}
@@ -312,16 +399,16 @@ export default function MapViewComponent() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '6px 10px', borderRadius: 20,
-                background: active ? color : '#fff',
-                color: active ? '#fff' : '#1f2937',
-                border: `1.5px solid ${active ? color : '#e5e7eb'}`,
+                background: active ? color : ov.bg,
+                color: active ? '#fff' : ov.text,
+                border: `1.5px solid ${active ? color : ov.border}`,
                 boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
                 fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
               }}
             >
               {icon} {label}
               <span style={{
-                background: active ? 'rgba(255,255,255,0.3)' : '#f3f4f6',
+                background: active ? 'rgba(255,255,255,0.3)' : (isDark ? '#2c2c2e' : '#f3f4f6'),
                 borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 700,
               }}>{count}</span>
             </UnstyledButton>
@@ -332,57 +419,186 @@ export default function MapViewComponent() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '6px 10px', borderRadius: 20,
-            background: showRoute ? '#b91c1c' : '#fff',
-            color: showRoute ? '#fff' : '#1f2937',
-            border: `1.5px solid ${showRoute ? '#b91c1c' : '#e5e7eb'}`,
+            background: showRoute ? '#b91c1c' : ov.bg,
+            color: showRoute ? '#fff' : ov.text,
+            border: `1.5px solid ${showRoute ? '#b91c1c' : ov.border}`,
             boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
             fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
           }}
         >
           <IconTimeline size={14} /> Trail
         </UnstyledButton>
+
+        {/* Filter button — only when Tabelog layer is active */}
+        {layers.tabelog && (
+          <UnstyledButton
+            onClick={() => setShowFilters(prev => !prev)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 10px', borderRadius: 20,
+              background: showFilters || hasActiveFilters ? '#ea580c' : ov.bg,
+              color: showFilters || hasActiveFilters ? '#fff' : ov.text,
+              border: `1.5px solid ${showFilters || hasActiveFilters ? '#ea580c' : ov.border}`,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+              fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
+            }}
+          >
+            <IconFilter size={14} /> Filter
+            {hasActiveFilters && (
+              <span style={{
+                background: 'rgba(255,255,255,0.3)',
+                borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 700,
+              }}>on</span>
+            )}
+          </UnstyledButton>
+        )}
+
+        {/* Vertical filter panel */}
+        {layers.tabelog && showFilters && (
+          <div style={{
+            background: ov.bg, borderRadius: 12, padding: 14, marginTop: 4,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.25)', width: 200,
+            border: `1px solid ${ov.border}`,
+            maxHeight: 'calc(100vh - 280px)', overflowY: 'auto',
+          }}>
+            {/* Price */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase">Price</Text>
+              <Text size="xs" fw={600} c="orange">
+                {maxPrice >= 15000 ? 'Any' : `≤ ¥${(maxPrice / 1000).toFixed(0)}k`}
+              </Text>
+            </div>
+            <div style={{ padding: '0 2px 18px' }}>
+              <Slider
+                value={maxPrice} onChange={setMaxPrice}
+                min={1000} max={15000} step={1000}
+                label={(v) => v >= 15000 ? 'Any' : `¥${(v / 1000).toFixed(0)}k`}
+                color="orange" size="sm"
+                marks={[{ value: 1000, label: '¥1k' }, { value: 6000, label: '¥6k' }, { value: 15000, label: 'Any' }]}
+                styles={{ markLabel: { fontSize: 9 } }}
+              />
+            </div>
+
+            {/* Rating */}
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>Rating</Text>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 12 }}>
+              {['all', '3.9', '3.8', '3.7', '3.6'].map(v => (
+                <UnstyledButton
+                  key={v}
+                  onClick={() => setMinRating(v)}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    background: minRating === v ? '#ea580c' : 'transparent',
+                    color: minRating === v ? '#fff' : ov.textDim,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {v === 'all' ? 'All ratings' : `${v}+ stars`}
+                </UnstyledButton>
+              ))}
+            </div>
+
+            {/* Japanese only */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingTop: 8, borderTop: `1px solid ${ov.border}` }}>
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase">Japanese only</Text>
+              <Switch
+                size="xs" checked={japaneseOnly}
+                onChange={(e) => { setJapaneseOnly(e.currentTarget.checked); setCuisineFilter([]); }}
+                color="red"
+              />
+            </div>
+
+            {/* Cuisine tags — vertical list */}
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>Cuisine</Text>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 12 }}>
+              {cuisineTags.map(([key, label]) => (
+                <UnstyledButton
+                  key={key}
+                  onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                    background: cuisineFilter.includes(key) ? '#ea580c' : 'transparent',
+                    color: cuisineFilter.includes(key) ? '#fff' : ov.textDim,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {label}
+                </UnstyledButton>
+              ))}
+            </div>
+
+            {/* Reset */}
+            {hasActiveFilters && (
+              <UnstyledButton
+                onClick={resetFilters}
+                style={{
+                  width: '100%', textAlign: 'center', padding: '8px 0',
+                  fontSize: 12, fontWeight: 600, color: '#ea580c',
+                  borderTop: `1px solid ${ov.border}`, marginTop: 4,
+                  borderRadius: 8,
+                }}
+              >
+                Reset all filters
+              </UnstyledButton>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Bottom carousel */}
-      {carouselPins.length > 0 && (
+      {/* Bottom card + carousel controls */}
+      {(carouselPins.length > 0 || selectedPin) && (
         <div style={{ position: 'absolute', bottom: 'env(safe-area-inset-bottom, 12px)', left: 0, right: 0, zIndex: 10, paddingBottom: 4 }}>
-          <Group justify="center" gap="sm" mb={8}>
-            <ActionIcon variant="white" radius="xl" size="md"
-              onClick={() => focusPin(activePin - 1)} disabled={activePin === 0}
-              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
-              <IconChevronLeft size={16} />
-            </ActionIcon>
-            <Badge size="lg" variant="white" radius="md"
-              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.1)', fontWeight: 700 }}>
-              {activePin + 1} / {carouselPins.length}
-            </Badge>
-            <ActionIcon variant="white" radius="xl" size="md"
-              onClick={() => focusPin(activePin + 1)} disabled={activePin === carouselPins.length - 1}
-              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
-              <IconChevronRight size={16} />
-            </ActionIcon>
-          </Group>
+          {/* Carousel arrows — only for itinerary, hidden when viewing a non-itinerary pin */}
+          {!selectedPin && carouselPins.length > 0 && (
+            <Group justify="center" gap="sm" mb={8}>
+              <ActionIcon variant="white" radius="xl" size="md"
+                onClick={() => focusPin(activePin - 1)} disabled={activePin === 0}
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
+                <IconChevronLeft size={16} />
+              </ActionIcon>
+              <Badge size="lg" variant="white" radius="md"
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.1)', fontWeight: 700 }}>
+                {activePin + 1} / {carouselPins.length}
+              </Badge>
+              <ActionIcon variant="white" radius="xl" size="md"
+                onClick={() => focusPin(activePin + 1)} disabled={activePin === carouselPins.length - 1}
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
+                <IconChevronRight size={16} />
+              </ActionIcon>
+            </Group>
+          )}
 
-          {currentPin && (
+          {displayPin && (
             <div style={{ padding: '0 12px' }}>
               <Card shadow="md" radius="md" padding="sm"
-                style={{ border: '2px solid #b91c1c', maxWidth: 420, margin: '0 auto' }}
+                style={{
+                  border: `2px solid ${selectedPin ? displayPin.color : '#b91c1c'}`,
+                  maxWidth: 420, margin: '0 auto',
+                }}
               >
                 <Group wrap="nowrap" gap="sm">
                   <div style={{
-                    width: 36, height: 36, borderRadius: 18, background: currentPin.color,
+                    width: 36, height: 36, borderRadius: 18, background: displayPin.color,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0,
                   }}>
-                    {currentPin.number || (currentPin.kind === 'tabelog' ? '★' : '♥')}
+                    {displayPin.number || (displayPin.kind === 'tabelog' ? '★' : '♥')}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <Text fw={700} size="sm" truncate>{currentPin.title}</Text>
-                    <Text size="xs" c="dimmed" truncate>{currentPin.subtitle}</Text>
+                    <Text fw={700} size="sm" truncate>{displayPin.title}</Text>
+                    <Text size="xs" c="dimmed" truncate>{displayPin.subtitle}</Text>
                   </div>
+                  {selectedPin && (
+                    <Tooltip label="Back to itinerary">
+                      <ActionIcon variant="subtle" color="gray" radius="xl" size="md"
+                        onClick={() => setSelectedPin(null)}>
+                        <IconChevronLeft size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
                   <Tooltip label="Get directions">
                     <ActionIcon variant="light" color="red" radius="xl" size="lg"
-                      onClick={() => openDirections(currentPin)}>
+                      onClick={() => openDirections(displayPin)}>
                       <IconNavigation size={18} />
                     </ActionIcon>
                   </Tooltip>

@@ -78,7 +78,7 @@ export default function FoodMenu({ data }) {
       </Group>
 
       <Collapse in={filtersOpen}>
-        <Card withBorder radius="md" p="md" mb="lg" bg="gray.0">
+        <Card withBorder radius="md" p="md" mb="lg">
           <Stack gap="sm">
             <TextInput
               placeholder="Search restaurants, categories, neighborhoods..."
@@ -116,7 +116,7 @@ export default function FoodMenu({ data }) {
       </Collapse>
 
       {filtered.length === 0 ? (
-        <Card withBorder radius="md" p="xl" ta="center" bg="gray.0">
+        <Card withBorder radius="md" p="xl" ta="center">
           <Text c="dimmed">No restaurants match your filters.</Text>
         </Card>
       ) : (

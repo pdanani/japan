@@ -12,7 +12,7 @@ html {
 }
 
 body {
-  background: #faf8f5;
+  background: var(--bg, #faf8f5);
   -webkit-font-smoothing: antialiased;
 }
 

@@ -5,6 +5,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, badgeColor } from '../theme';
+import { useTheme } from '../ThemeContext';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import { timeline } from '../data/tripData';
@@ -32,6 +33,7 @@ const SOURCE_CONFIG = {
 
 export default function TimelineScreen() {
   const navigation = useNavigation();
+  const { colors: tc } = useTheme();
   const [selected, setSelected] = useState(1);
 
   const day = timeline.find(d => d.day === selected);
@@ -40,10 +42,10 @@ export default function TimelineScreen() {
   const nearbyCount = tabelogList.length + savedList.length;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[styles.screen, { backgroundColor: tc.bg }]} contentContainerStyle={{ paddingBottom: 100 }}>
       {/* Header */}
-      <Text style={styles.title}>Trip Timeline</Text>
-      <Text style={styles.subtitle}>Day-by-day itinerary</Text>
+      <Text style={[styles.title, { color: tc.text }]}>Trip Timeline</Text>
+      <Text style={[styles.subtitle, { color: tc.textMuted }]}>Day-by-day itinerary</Text>
 
       {/* Type legend */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
@@ -63,16 +65,16 @@ export default function TimelineScreen() {
               <TouchableOpacity
                 key={d.day}
                 onPress={() => setSelected(d.day)}
-                style={[styles.dayBtn, active && styles.dayBtnActive]}
+                style={[styles.dayBtn, { backgroundColor: tc.card, borderColor: tc.border }, active && styles.dayBtnActive]}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.dayLabel, active && { color: 'rgba(255,255,255,0.85)' }]}>
+                <Text style={[styles.dayLabel, { color: tc.textMuted }, active && { color: 'rgba(255,255,255,0.85)' }]}>
                   {d.day === 0 ? 'Travel' : d.day === 15 ? 'End' : `Day ${d.day}`}
                 </Text>
-                <Text style={[styles.dayDate, active && { color: '#fff' }]}>
+                <Text style={[styles.dayDate, { color: tc.text }, active && { color: '#fff' }]}>
                   {d.date.replace('July ', '7/')}
                 </Text>
-                <Text style={[styles.dayLoc, active && { color: 'rgba(255,255,255,0.8)' }]} numberOfLines={1}>
+                <Text style={[styles.dayLoc, { color: tc.textMuted }, active && { color: 'rgba(255,255,255,0.8)' }]} numberOfLines={1}>
                   {d.location.length > 12 ? d.location.slice(0, 12) + '…' : d.location}
                 </Text>
               </TouchableOpacity>
@@ -85,24 +87,24 @@ export default function TimelineScreen() {
       {day && (
         <>
           <Card borderLeftColor={colors.primary}>
-            <Text style={styles.dayTitle}>
+            <Text style={[styles.dayTitle, { color: tc.text }]}>
               {day.day === 0 ? 'Travel Day' : day.day === 15 ? 'Departure' : `Day ${day.day} — ${day.dayOfWeek}`}
             </Text>
             <View style={[styles.row, { marginTop: 6, gap: 12 }]}>
               <View style={styles.row}>
-                <Ionicons name="calendar" size={14} color={colors.textMuted} />
-                <Text style={styles.dimText}> {day.date}</Text>
+                <Ionicons name="calendar" size={14} color={tc.textMuted} />
+                <Text style={[styles.dimText, { color: tc.textSecondary }]}> {day.date}</Text>
               </View>
               <View style={styles.row}>
-                <Ionicons name="location" size={14} color={colors.textMuted} />
-                <Text style={styles.dimText}> {day.location}</Text>
+                <Ionicons name="location" size={14} color={tc.textMuted} />
+                <Text style={[styles.dimText, { color: tc.textSecondary }]}> {day.location}</Text>
               </View>
             </View>
             {day.schedule.length > 0 && (
               <Badge label={`${day.schedule.length} activities`} color="red" size="xs" style={{ marginTop: 8 }} />
             )}
             {day.notes && (
-              <Text style={[styles.dimText, { marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 8 }]}>
+              <Text style={[styles.dimText, { color: tc.textSecondary, marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tc.border, paddingTop: 8 }]}>
                 {day.notes}
               </Text>
             )}
@@ -117,13 +119,13 @@ export default function TimelineScreen() {
                 const c = badgeColor(cfg.color);
                 return (
                   <View key={`${selected}-${i}`} style={styles.timelineItem}>
-                    {i < day.schedule.length - 1 && <View style={styles.timelineLine} />}
+                    {i < day.schedule.length - 1 && <View style={[styles.timelineLine, { backgroundColor: tc.border }]} />}
                     <View style={[styles.timelineBullet, { backgroundColor: c.text }]}>
                       <Ionicons name={cfg.icon} size={14} color="#fff" />
                     </View>
                     <View style={styles.timelineContent}>
                       <View style={styles.row}>
-                        <Text style={[styles.activityName, s.suggested && { fontStyle: 'italic' }]}>
+                        <Text style={[styles.activityName, { color: tc.text }, s.suggested && { fontStyle: 'italic' }]}>
                           {s.activity}
                         </Text>
                         {s.suggested && <Badge label="suggested" color="grape" size="xs" />}
@@ -151,9 +153,9 @@ export default function TimelineScreen() {
           ) : (
             <Card>
               <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-                <Ionicons name="sad-outline" size={32} color={colors.textMuted} />
-                <Text style={[styles.dimText, { marginTop: 8 }]}>No detailed schedule yet for this day.</Text>
-                <Text style={[styles.dimText, { fontSize: 12, marginTop: 4 }]}>Check Food & Activities for ideas!</Text>
+                <Ionicons name="sad-outline" size={32} color={tc.textMuted} />
+                <Text style={[styles.dimText, { color: tc.textSecondary, marginTop: 8 }]}>No detailed schedule yet for this day.</Text>
+                <Text style={[styles.dimText, { color: tc.textSecondary, fontSize: 12, marginTop: 4 }]}>Check Food & Activities for ideas!</Text>
               </View>
             </Card>
           )}
@@ -162,7 +164,7 @@ export default function TimelineScreen() {
           {nearbyCount > 0 && (
             <TouchableOpacity
               onPress={() => navigation.navigate('NearbyRecs', { dayNumber: selected })}
-              style={styles.nearbyBtn}
+              style={[styles.nearbyBtn, { backgroundColor: tc.card, borderColor: tc.border }]}
               activeOpacity={0.7}
             >
               <View style={styles.nearbyLeft}>
@@ -170,15 +172,15 @@ export default function TimelineScreen() {
                   <Ionicons name="flame" size={20} color="#ea580c" />
                 </View>
                 <View>
-                  <Text style={styles.nearbyTitle}>Nearby Recs</Text>
-                  <Text style={styles.nearbySubtitle}>
+                  <Text style={[styles.nearbyTitle, { color: tc.text }]}>Nearby Recs</Text>
+                  <Text style={[styles.nearbySubtitle, { color: tc.textMuted }]}>
                     {tabelogList.length} Tabelog · {savedList.length} saved
                   </Text>
                 </View>
               </View>
               <View style={styles.row}>
                 <Badge label={`${nearbyCount}`} color="orange" size="xs" />
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={{ marginLeft: 8 }} />
+                <Ionicons name="chevron-forward" size={20} color={tc.textMuted} style={{ marginLeft: 8 }} />
               </View>
             </TouchableOpacity>
           )}
@@ -189,13 +191,13 @@ export default function TimelineScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg, padding: 16 },
+  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 54 },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 2 },
   subtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
   row: { flexDirection: 'row', alignItems: 'center' },
   dayBtn: {
     minWidth: 78, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12,
-    borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#fff',
+    borderRadius: 10, borderWidth: 1.5, borderColor: colors.border,
   },
   dayBtnActive: {
     backgroundColor: colors.primary, borderColor: colors.primary,
@@ -220,7 +222,7 @@ const styles = StyleSheet.create({
   // Nearby Recs button
   nearbyBtn: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#fff', borderRadius: 14, padding: 16, marginTop: 20,
+    borderRadius: 14, padding: 16, marginTop: 20,
     borderWidth: 1, borderColor: '#fed7aa',
     shadowColor: '#ea580c', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Platform, Dimensions, FlatList,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Platform, Dimensions, FlatList, Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -14,6 +14,7 @@ if (Platform.OS !== 'web') {
   const Circle = Maps.Circle;
 }
 import { colors, badgeColor } from '../theme';
+import { useTheme } from '../ThemeContext';
 import Badge from '../components/Badge';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
@@ -40,6 +41,18 @@ const LAYER_CONFIG = {
   saves: { color: '#2563eb', icon: 'bookmark', label: 'Saves' },
 };
 
+const NON_JAPANESE = [
+  'italian', 'french', 'indian', 'chinese', 'sichuan', 'korean',
+  'thai', 'vietnamese', 'spanish', 'american', 'peruvian',
+  'nepalese', 'sri lankan', 'bistro', 'pizza', 'pasta', 'steak',
+];
+
+function parsePrice(p) {
+  if (!p) return 0;
+  const m = p.match(/[\d,]+/);
+  return m ? parseInt(m[0].replace(/,/g, ''), 10) : 0;
+}
+
 function openDirections(lat, lng, label) {
   const url = Platform.select({
     ios: `maps:?daddr=${lat},${lng}&q=${encodeURIComponent(label)}`,
@@ -65,21 +78,29 @@ function PinCallout({ title, subtitle, type, coord }) {
 }
 
 export default function MapScreen() {
+  const { colors: tc, isDark } = useTheme();
   const mapRef = useRef(null);
   const carouselRef = useRef(null);
   const [selected, setSelected] = useState(1);
   const [activePin, setActivePin] = useState(0);
   const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
   const [showRoute, setShowRoute] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [maxPrice, setMaxPrice] = useState(15000);
+  const [minRating, setMinRating] = useState('all');
+  const [japaneseOnly, setJapaneseOnly] = useState(false);
+
+  const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly;
+  const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); };
 
   if (Platform.OS === 'web') {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
-        <Ionicons name="map" size={48} color={colors.textMuted} />
-        <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: colors.text }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: tc.bg }}>
+        <Ionicons name="map" size={48} color={tc.textMuted} />
+        <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: tc.text }}>
           Maps available on iPhone
         </Text>
-        <Text style={{ marginTop: 4, fontSize: 13, color: colors.textMuted }}>
+        <Text style={{ marginTop: 4, fontSize: 13, color: tc.textMuted }}>
           Open this in Expo Go to use the map
         </Text>
       </View>
@@ -118,16 +139,20 @@ export default function MapScreen() {
     return segs;
   }, [itineraryPins]);
 
-  // Build tabelog pins
+  // Build tabelog pins (filtered)
   const tabelogPins = useMemo(() => {
-    return tabelogList
+    let filtered = tabelogList;
+    if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
+    if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
+    if (japaneseOnly) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });
+    return filtered
       .map(r => {
         const coord = getTabelogCoord(r);
         if (!coord) return null;
         return { ...r, coord };
       })
       .filter(Boolean);
-  }, [tabelogList]);
+  }, [tabelogList, maxPrice, minRating, japaneseOnly]);
 
   // Build saved place pins
   const savedPins = useMemo(() => {
@@ -233,23 +258,20 @@ export default function MapScreen() {
     carouselRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [selected]);
 
-  // Fit map to visible pins when day or layers change
+  // Fit map only when day changes (not on layer/filter toggles)
   useEffect(() => {
-    const allCoords = [];
-    if (layers.itinerary) itineraryPins.forEach(p => allCoords.push(p.coord));
-    if (layers.tabelog) tabelogPins.forEach(p => allCoords.push(p.coord));
-    if (layers.saves) savedPins.forEach(p => allCoords.push(p.coord));
+    const coords = itineraryPins.map(p => p.coord);
 
-    if (allCoords.length > 1 && mapRef.current) {
+    if (coords.length > 1 && mapRef.current) {
       setTimeout(() => {
-        mapRef.current?.fitToCoordinates(allCoords, {
+        mapRef.current?.fitToCoordinates(coords, {
           edgePadding: { top: 100, right: 50, bottom: 220, left: 50 },
           animated: true,
         });
       }, 400);
-    } else if (allCoords.length === 1 && mapRef.current) {
+    } else if (coords.length === 1 && mapRef.current) {
       mapRef.current?.animateCamera(
-        { center: allCoords[0], altitude: 4000 },
+        { center: coords[0], altitude: 4000 },
         { duration: 1000 },
       );
     } else if (day && mapRef.current) {
@@ -259,7 +281,7 @@ export default function MapScreen() {
         { duration: 1000 },
       );
     }
-  }, [selected, layers, itineraryPins.length, tabelogPins.length, savedPins.length]);
+  }, [selected]);
 
   const dayCenter = day ? getDayCenter(day) : { latitude: 35.6762, longitude: 139.6503 };
 
@@ -273,6 +295,7 @@ export default function MapScreen() {
           latitudeDelta: 0.04,
           longitudeDelta: 0.04,
         }}
+        userInterfaceStyle={isDark ? 'dark' : 'light'}
         showsUserLocation
         showsMyLocationButton
         showsCompass
@@ -381,7 +404,7 @@ export default function MapScreen() {
       </MapView>
 
       {/* Day selector overlay */}
-      <View style={styles.dayOverlay}>
+      <View style={[styles.dayOverlay, { backgroundColor: isDark ? 'rgba(17,17,17,0.92)' : 'rgba(255,255,255,0.92)' }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.dayRow}>
             {timeline.map(d => {
@@ -390,13 +413,13 @@ export default function MapScreen() {
                 <TouchableOpacity
                   key={d.day}
                   onPress={() => setSelected(d.day)}
-                  style={[styles.dayChip, active && styles.dayChipActive]}
+                  style={[styles.dayChip, { backgroundColor: tc.card, borderColor: tc.border }, active && styles.dayChipActive]}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.dayChipLabel, active && { color: '#fff' }]}>
+                  <Text style={[styles.dayChipLabel, { color: tc.text }, active && { color: '#fff' }]}>
                     {d.day === 0 ? 'Travel' : d.day === 15 ? 'End' : `D${d.day}`}
                   </Text>
-                  <Text style={[styles.dayChipDate, active && { color: 'rgba(255,255,255,0.8)' }]}>
+                  <Text style={[styles.dayChipDate, { color: tc.textMuted }, active && { color: 'rgba(255,255,255,0.8)' }]}>
                     {d.date.replace('July ', '7/')}
                   </Text>
                 </TouchableOpacity>
@@ -417,30 +440,127 @@ export default function MapScreen() {
             <TouchableOpacity
               key={key}
               onPress={() => toggleLayer(key)}
-              style={[styles.layerBtn, active && { backgroundColor: cfg.color, borderColor: cfg.color }]}
+              style={[styles.layerBtn, { backgroundColor: tc.card, borderColor: tc.border }, active && { backgroundColor: cfg.color, borderColor: cfg.color }]}
               activeOpacity={0.7}
             >
               <Ionicons name={cfg.icon} size={16} color={active ? '#fff' : cfg.color} />
-              <Text style={[styles.layerLabel, active && { color: '#fff' }]}>
+              <Text style={[styles.layerLabel, { color: tc.text }, active && { color: '#fff' }]}>
                 {cfg.label}
               </Text>
-              <View style={[styles.layerCount, active && { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
-                <Text style={[styles.layerCountText, active && { color: '#fff' }]}>{count}</Text>
+              <View style={[styles.layerCount, { backgroundColor: tc.border }, active && { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+                <Text style={[styles.layerCountText, { color: tc.textSecondary }, active && { color: '#fff' }]}>{count}</Text>
               </View>
             </TouchableOpacity>
           );
         })}
         <TouchableOpacity
           onPress={() => setShowRoute(prev => !prev)}
-          style={[styles.layerBtn, showRoute && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+          style={[styles.layerBtn, { backgroundColor: tc.card, borderColor: tc.border }, showRoute && { backgroundColor: colors.primary, borderColor: colors.primary }]}
           activeOpacity={0.7}
         >
           <Ionicons name="git-branch" size={16} color={showRoute ? '#fff' : colors.primary} />
-          <Text style={[styles.layerLabel, showRoute && { color: '#fff' }]}>
+          <Text style={[styles.layerLabel, { color: tc.text }, showRoute && { color: '#fff' }]}>
             Trail
           </Text>
         </TouchableOpacity>
+
+        {/* Filter button — only when Tabelog layer is active */}
+        {layers.tabelog && (
+          <TouchableOpacity
+            onPress={() => setShowFilters(prev => !prev)}
+            style={[
+              styles.layerBtn,
+              { backgroundColor: tc.card, borderColor: tc.border },
+              (showFilters || hasActiveFilters) && { backgroundColor: '#ea580c', borderColor: '#ea580c' },
+            ]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="funnel" size={16} color={(showFilters || hasActiveFilters) ? '#fff' : '#ea580c'} />
+            <Text style={[styles.layerLabel, { color: tc.text }, (showFilters || hasActiveFilters) && { color: '#fff' }]}>
+              Filter
+            </Text>
+            {hasActiveFilters && (
+              <View style={[styles.layerCount, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+                <Text style={[styles.layerCountText, { color: '#fff' }]}>on</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Collapsible filter panel */}
+      {layers.tabelog && showFilters && (
+        <View style={[styles.filterPanel, { backgroundColor: tc.card, borderColor: tc.border }]}>
+          {/* Price presets */}
+          <Text style={[styles.filterPanelLabel, { color: tc.textSecondary }]}>Price</Text>
+          <View style={styles.filterChipRow}>
+            {[
+              { label: '≤ ¥3k', value: 3000 },
+              { label: '≤ ¥6k', value: 6000 },
+              { label: 'Any', value: 15000 },
+            ].map(({ label, value }) => (
+              <TouchableOpacity
+                key={value}
+                onPress={() => setMaxPrice(value)}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: tc.border, borderColor: tc.border },
+                  maxPrice === value && styles.filterChipActive,
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.filterChipText,
+                  { color: tc.textSecondary },
+                  maxPrice === value && styles.filterChipTextActive,
+                ]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Rating chips */}
+          <Text style={[styles.filterPanelLabel, { color: tc.textSecondary, marginTop: 10 }]}>Rating</Text>
+          <View style={styles.filterChipRow}>
+            {['all', '3.9', '3.8', '3.7', '3.6'].map(v => (
+              <TouchableOpacity
+                key={v}
+                onPress={() => setMinRating(v)}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: tc.border, borderColor: tc.border },
+                  minRating === v && styles.filterChipActive,
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.filterChipText,
+                  { color: tc.textSecondary },
+                  minRating === v && styles.filterChipTextActive,
+                ]}>{v === 'all' ? 'All' : `${v}+`}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Japanese-only toggle */}
+          <View style={styles.filterSwitchRow}>
+            <Text style={[styles.filterPanelLabel, { color: tc.textSecondary }]}>Japanese only</Text>
+            <Switch
+              value={japaneseOnly}
+              onValueChange={setJapaneseOnly}
+              trackColor={{ false: tc.border, true: '#fca5a5' }}
+              thumbColor={japaneseOnly ? colors.primary : tc.card}
+            />
+          </View>
+
+          {/* Reset */}
+          {hasActiveFilters && (
+            <TouchableOpacity onPress={resetFilters} style={[styles.filterResetBtn, { borderTopColor: tc.border }]} activeOpacity={0.7}>
+              <Ionicons name="refresh" size={14} color="#ea580c" />
+              <Text style={styles.filterResetText}>Reset filters</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Bottom carousel — itinerary only */}
       {carouselPins.length > 0 && (
@@ -454,11 +574,11 @@ export default function MapScreen() {
                 carouselRef.current?.scrollToOffset({ offset: prev * (CARD_WIDTH + 12), animated: true });
               }}
               disabled={activePin === 0}
-              style={[styles.navBtn, activePin === 0 && { opacity: 0.3 }]}
+              style={[styles.navBtn, { backgroundColor: tc.card }, activePin === 0 && { opacity: 0.3 }]}
             >
-              <Ionicons name="chevron-back" size={18} color={colors.text} />
+              <Ionicons name="chevron-back" size={18} color={tc.text} />
             </TouchableOpacity>
-            <Text style={styles.navCounter}>
+            <Text style={[styles.navCounter, { color: tc.text, backgroundColor: tc.card }]}>
               {activePin + 1} / {carouselPins.length}
             </Text>
             <TouchableOpacity
@@ -468,9 +588,9 @@ export default function MapScreen() {
                 carouselRef.current?.scrollToOffset({ offset: next * (CARD_WIDTH + 12), animated: true });
               }}
               disabled={activePin === carouselPins.length - 1}
-              style={[styles.navBtn, activePin === carouselPins.length - 1 && { opacity: 0.3 }]}
+              style={[styles.navBtn, { backgroundColor: tc.card }, activePin === carouselPins.length - 1 && { opacity: 0.3 }]}
             >
-              <Ionicons name="chevron-forward" size={18} color={colors.text} />
+              <Ionicons name="chevron-forward" size={18} color={tc.text} />
             </TouchableOpacity>
           </View>
 
@@ -500,7 +620,7 @@ export default function MapScreen() {
                   }}
                   style={[
                     styles.card,
-                    { width: CARD_WIDTH, marginRight: 12 },
+                    { width: CARD_WIDTH, marginRight: 12, backgroundColor: tc.card },
                     isActive && styles.cardActive,
                   ]}
                 >
@@ -512,12 +632,12 @@ export default function MapScreen() {
                       }
                     </View>
                     <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-                      <Text style={styles.cardSub} numberOfLines={1}>{item.subtitle}</Text>
+                      <Text style={[styles.cardTitle, { color: tc.text }]} numberOfLines={1}>{item.title}</Text>
+                      <Text style={[styles.cardSub, { color: tc.textSecondary }]} numberOfLines={1}>{item.subtitle}</Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => openDirections(item.coord.latitude, item.coord.longitude, item.title)}
-                      style={styles.dirBtn}
+                      style={[styles.dirBtn, { backgroundColor: tc.border }]}
                     >
                       <Ionicons name="navigate" size={18} color={colors.primary} />
                     </TouchableOpacity>
@@ -531,8 +651,8 @@ export default function MapScreen() {
 
       {/* Empty state */}
       {carouselPins.length === 0 && day && (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>
+        <View style={[styles.emptyCard, { backgroundColor: tc.card }]}>
+          <Text style={[styles.emptyText, { color: tc.textMuted }]}>
             No pins for this day. Toggle a layer above.
           </Text>
         </View>
@@ -601,6 +721,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 1,
   },
   layerCountText: { fontSize: 10, fontWeight: '700', color: colors.textSecondary },
+
+  // Filter panel
+  filterPanel: {
+    position: 'absolute', top: Platform.OS === 'ios' ? 120 : 100,
+    left: 120, right: 12, maxWidth: 220,
+    backgroundColor: '#fff', borderRadius: 12, padding: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15, shadowRadius: 8, elevation: 6,
+    borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  filterPanelLabel: {
+    fontSize: 11, fontWeight: '700', color: colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
+  },
+  filterChipRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+  },
+  filterChip: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12,
+    backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  filterChipActive: {
+    backgroundColor: '#ea580c', borderColor: '#ea580c',
+  },
+  filterChipText: {
+    fontSize: 11, fontWeight: '600', color: '#6b7280',
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
+  filterSwitchRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: 10,
+  },
+  filterResetBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    marginTop: 10, paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e7eb',
+  },
+  filterResetText: {
+    fontSize: 12, fontWeight: '600', color: '#ea580c',
+  },
 
   markerActive: {
     width: 36, height: 36, borderRadius: 18,
