@@ -599,8 +599,8 @@ export default function MapViewComponent() {
         )}
       </div>
 
-      {/* Bottom card + carousel controls */}
-      {(carouselPins.length > 0 || selectedPin) && (
+      {/* Bottom card + carousel controls — hidden when filter sheet is open */}
+      {!showFilters && (carouselPins.length > 0 || selectedPin) && (
         <div style={{ position: 'absolute', bottom: 'env(safe-area-inset-bottom, 12px)', left: 0, right: 0, zIndex: 10, paddingBottom: 4 }}>
           {/* Carousel arrows — only for itinerary, hidden when viewing a non-itinerary pin */}
           {!selectedPin && carouselPins.length > 0 && (
