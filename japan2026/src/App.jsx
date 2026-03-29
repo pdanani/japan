@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Container, Tabs, Notification } from '@mantine/core';
 import {
-  IconClock, IconToolsKitchen2, IconMap2, IconChecklist, IconUsers, IconRefresh, IconMapPin,
+  IconClock, IconToolsKitchen2, IconMap2, IconChecklist, IconAlertTriangle, IconRefresh, IconMapPin,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
 import Hero from './components/Hero';
@@ -20,6 +20,7 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeTab, setActiveTab] = useState('timeline');
+  const [selectedDay, setSelectedDay] = useState(1);
 
   const showToast = useCallback((message, color) => {
     setToast({ message, color });
@@ -88,18 +89,28 @@ export default function App() {
             <Tabs.Tab value="food" className="nav-btn" leftSection={<IconToolsKitchen2 size={16} />}>Food</Tabs.Tab>
             <Tabs.Tab value="activities" className="nav-btn" leftSection={<IconMap2 size={16} />}>Activities</Tabs.Tab>
             <Tabs.Tab value="planning" className="nav-btn" leftSection={<IconChecklist size={16} />}>Planning</Tabs.Tab>
-            <Tabs.Tab value="group" className="nav-btn" leftSection={<IconUsers size={16} />}>Group</Tabs.Tab>
+            <Tabs.Tab value="group" className="nav-btn" leftSection={<IconAlertTriangle size={16} />}>Allergies</Tabs.Tab>
           </Tabs.List>
         </Tabs>
       </nav>
 
       {/* Map — full bleed, no hero, no container */}
-      {activeTab === 'map' && <MapViewComponent />}
+      {activeTab === 'map' && (
+        <MapViewComponent
+          initialDay={selectedDay}
+          onViewList={(day) => { setSelectedDay(day); setActiveTab('timeline'); }}
+        />
+      )}
 
       {/* All other tabs — inside container */}
       {activeTab !== 'map' && (
         <Container size="lg" py="xl">
-          {activeTab === 'timeline' && <Timeline />}
+          {activeTab === 'timeline' && (
+            <Timeline
+              selectedDay={selectedDay}
+              onViewMap={(day) => { setSelectedDay(day); setActiveTab('map'); }}
+            />
+          )}
           {activeTab === 'food' && <FoodMenu data={food} />}
           {activeTab === 'activities' && <Activities data={activities} />}
           {activeTab === 'planning' && <Planning />}

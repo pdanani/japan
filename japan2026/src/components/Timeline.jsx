@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import {
   Timeline as MTimeline, Title, Text, Badge, Group, Card, Button, Switch,
   ThemeIcon, ScrollArea, UnstyledButton, Accordion, SimpleGrid,
@@ -10,6 +10,7 @@ import {
   IconTrain, IconMoodEmpty, IconExternalLink, IconStarFilled,
   IconFlame, IconTable, IconBrandGoogleMaps,
   IconRobot, IconToolsKitchen2, IconChecklist, IconCurrentLocation,
+  IconMap2,
 } from '@tabler/icons-react';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
@@ -172,8 +173,16 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function TimelineSection() {
-  const [selected, setSelected] = useState(1);
+export default function TimelineSection({ selectedDay, onViewMap }) {
+  const [selected, setSelected] = useState(selectedDay || 1);
+
+  // Sync with parent when selectedDay changes (e.g. navigating back from map)
+  useEffect(() => {
+    if (selectedDay != null && selectedDay !== selected) {
+      setSelected(selectedDay);
+    }
+  }, [selectedDay]);
+
   const [userLoc, setUserLoc] = useState(null);
   const [locLoading, setLocLoading] = useState(false);
   const [sortNearest, setSortNearest] = useState(false);
@@ -334,6 +343,21 @@ export default function TimelineSection() {
               <Text size="sm" c="dimmed" mt="sm" pt="sm" style={{ borderTop: '1px solid #e5e7eb' }}>{day.notes}</Text>
             )}
           </Card>
+
+          {onViewMap && (
+            <Button
+              variant="subtle"
+              color="gray"
+              size="compact-xs"
+              radius="xl"
+              leftSection={<IconMap2 size={14} />}
+              onClick={() => onViewMap(selected)}
+              mb="md"
+              style={{ fontWeight: 500 }}
+            >
+              View on Map
+            </Button>
+          )}
 
           {day.schedule.length > 0 ? (
             <MTimeline active={day.schedule.length - 1} bulletSize={28} lineWidth={2} ml="xs">

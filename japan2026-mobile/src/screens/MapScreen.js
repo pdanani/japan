@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Platform, Dimensions, FlatList,
 } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 let MapView, Marker, Polyline, Callout;
@@ -65,6 +66,22 @@ function PinCallout({ title, subtitle, type, coord }) {
 }
 
 export default function MapScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const mapRef = useRef(null);
+  const carouselRef = useRef(null);
+  const [selected, setSelected] = useState(route.params?.day ?? 1);
+  const [activePin, setActivePin] = useState(0);
+  const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
+  const [showRoute, setShowRoute] = useState(true);
+
+  // When arriving from TimelineScreen with a day param, sync the selected day
+  useEffect(() => {
+    if (route.params?.day != null) {
+      setSelected(route.params.day);
+    }
+  }, [route.params?.day]);
+
   if (Platform.OS === 'web') {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
@@ -78,12 +95,6 @@ export default function MapScreen() {
       </View>
     );
   }
-
-  const mapRef = useRef(null);
-  const carouselRef = useRef(null);
-  const [selected, setSelected] = useState(1);
-  const [activePin, setActivePin] = useState(0);
-  const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
 
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
@@ -277,7 +288,7 @@ export default function MapScreen() {
         showsCompass
       >
         {/* Route segments — layered: soft glow underneath, crisp line on top */}
-        {layers.itinerary && routeSegments.map((seg) => (
+        {showRoute && layers.itinerary && routeSegments.map((seg) => (
           <React.Fragment key={`seg-${seg.index}`}>
             {/* Glow / shadow layer */}
             <Polyline
@@ -381,28 +392,38 @@ export default function MapScreen() {
 
       {/* Day selector overlay */}
       <View style={styles.dayOverlay}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.dayRow}>
-            {timeline.map(d => {
-              const active = d.day === selected;
-              return (
-                <TouchableOpacity
-                  key={d.day}
-                  onPress={() => setSelected(d.day)}
-                  style={[styles.dayChip, active && styles.dayChipActive]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.dayChipLabel, active && { color: '#fff' }]}>
-                    {d.day === 0 ? 'Travel' : d.day === 15 ? 'End' : `D${d.day}`}
-                  </Text>
-                  <Text style={[styles.dayChipDate, active && { color: 'rgba(255,255,255,0.8)' }]}>
-                    {d.date.replace('July ', '7/')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
+        <View style={styles.dayOverlayRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+            <View style={styles.dayRow}>
+              {timeline.map(d => {
+                const active = d.day === selected;
+                return (
+                  <TouchableOpacity
+                    key={d.day}
+                    onPress={() => setSelected(d.day)}
+                    style={[styles.dayChip, active && styles.dayChipActive]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dayChipLabel, active && { color: '#fff' }]}>
+                      {d.day === 0 ? 'Travel' : d.day === 15 ? 'End' : `D${d.day}`}
+                    </Text>
+                    <Text style={[styles.dayChipDate, active && { color: 'rgba(255,255,255,0.8)' }]}>
+                      {d.date.replace('July ', '7/')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Timeline', { day: selected })}
+          style={styles.viewToggleBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="list-outline" size={14} color={colors.primary} />
+          <Text style={styles.viewToggleText}>View List</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Layer toggles overlay */}
@@ -429,6 +450,16 @@ export default function MapScreen() {
             </TouchableOpacity>
           );
         })}
+        <TouchableOpacity
+          onPress={() => setShowRoute(prev => !prev)}
+          style={[styles.layerBtn, showRoute && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="git-branch" size={16} color={showRoute ? '#fff' : colors.primary} />
+          <Text style={[styles.layerLabel, showRoute && { color: '#fff' }]}>
+            Trail
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Bottom carousel — itinerary only */}
@@ -558,7 +589,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingBottom: 8,
     backgroundColor: 'rgba(255,255,255,0.92)',
   },
+  dayOverlayRow: { flexDirection: 'row', alignItems: 'center' },
   dayRow: { flexDirection: 'row', gap: 6 },
+  viewToggleBtn: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end',
+    gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+    backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca',
+    marginTop: 6, marginRight: 4,
+  },
+  viewToggleText: {
+    fontSize: 13, fontWeight: '600', color: colors.primary,
+  },
   dayChip: {
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
     backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border,
@@ -574,7 +615,7 @@ const styles = StyleSheet.create({
 
   // Layer toggles
   layerOverlay: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 120 : 100,
+    position: 'absolute', top: Platform.OS === 'ios' ? 152 : 132,
     left: 12, gap: 6,
   },
   layerBtn: {

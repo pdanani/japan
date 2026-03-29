@@ -27,7 +27,7 @@ const TAB_ICONS = {
   Food: { active: 'restaurant', inactive: 'restaurant-outline' },
   Activities: { active: 'compass', inactive: 'compass-outline' },
   Planning: { active: 'checkbox', inactive: 'checkbox-outline' },
-  Group: { active: 'people', inactive: 'people-outline' },
+  Allergies: { active: 'alert-circle', inactive: 'alert-circle-outline' },
 };
 
 function HeroHeader({ onSync, syncing }) {
@@ -142,7 +142,7 @@ function App() {
           {() => <ActivitiesScreen data={activities} />}
         </Tab.Screen>
         <Tab.Screen name="Planning" component={PlanningScreen} />
-        <Tab.Screen name="Group" component={GroupScreen} />
+        <Tab.Screen name="Allergies" component={GroupScreen} />
       </Tab.Navigator>
     );
   }

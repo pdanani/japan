@@ -6,7 +6,8 @@ import {
 } from '@mantine/core';
 import {
   IconStarFilled, IconBookmark, IconNavigation,
-  IconChevronLeft, IconChevronRight, IconRoute,
+  IconChevronLeft, IconChevronRight, IconRoute, IconTimeline,
+  IconList,
 } from '@tabler/icons-react';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
@@ -28,12 +29,21 @@ const TYPE_CONFIG = {
   activity: { color: '#ca8a04', label: 'Activity' },
 };
 
-export default function MapViewComponent() {
+export default function MapViewComponent({ initialDay, onViewList }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const [selected, setSelected] = useState(1);
+  const [selected, setSelected] = useState(initialDay || 1);
+
+  // Sync with parent when initialDay changes (e.g. navigating from timeline)
+  useEffect(() => {
+    if (initialDay != null && initialDay !== selected) {
+      setSelected(initialDay);
+    }
+  }, [initialDay]);
+
   const [activePin, setActivePin] = useState(0);
   const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
+  const [showRoute, setShowRoute] = useState(true);
   const [mapReady, setMapReady] = useState(false);
 
   const day = timeline.find(d => d.day === selected);
@@ -216,8 +226,9 @@ export default function MapViewComponent() {
   useEffect(() => {
     if (!map.current || !mapReady) return;
     const src = map.current.getSource('route');
-    if (src) src.setData(routeGeoJSON || { type: 'FeatureCollection', features: [] });
-  }, [mapReady, routeGeoJSON]);
+    const empty = { type: 'FeatureCollection', features: [] };
+    if (src) src.setData(showRoute && routeGeoJSON ? routeGeoJSON : empty);
+  }, [mapReady, routeGeoJSON, showRoute]);
 
   // Update pin data
   useEffect(() => {
@@ -262,11 +273,11 @@ export default function MapViewComponent() {
   const currentPin = carouselPins[activePin];
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 60px)' }}>
+    <div style={{ position: 'relative', width: '100%', height: 'calc(100dvh - 60px)', overflow: 'hidden' }}>
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
 
       {/* Day selector */}
-      <div style={{ position: 'absolute', top: 12, left: 12, right: 60, zIndex: 10 }}>
+      <div style={{ position: 'absolute', top: 12, left: 12, right: onViewList ? 110 : 60, zIndex: 10 }}>
         <ScrollArea type="never">
           <Group gap={6} wrap="nowrap">
             {timeline.map(d => {
@@ -293,6 +304,25 @@ export default function MapViewComponent() {
           </Group>
         </ScrollArea>
       </div>
+
+      {/* View List toggle */}
+      {onViewList && (
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
+          <UnstyledButton
+            onClick={() => onViewList(selected)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 12px', borderRadius: 20,
+              background: '#fff', color: '#1f2937',
+              border: '1.5px solid #e5e7eb',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+              fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
+            }}
+          >
+            <IconList size={14} /> View List
+          </UnstyledButton>
+        </div>
+      )}
 
       {/* Layer toggles */}
       <div style={{ position: 'absolute', top: 60, left: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -325,11 +355,25 @@ export default function MapViewComponent() {
             </UnstyledButton>
           );
         })}
+        <UnstyledButton
+          onClick={() => setShowRoute(prev => !prev)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 10px', borderRadius: 20,
+            background: showRoute ? '#b91c1c' : '#fff',
+            color: showRoute ? '#fff' : '#1f2937',
+            border: `1.5px solid ${showRoute ? '#b91c1c' : '#e5e7eb'}`,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+            fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
+          }}
+        >
+          <IconTimeline size={14} /> Trail
+        </UnstyledButton>
       </div>
 
       {/* Bottom carousel */}
       {carouselPins.length > 0 && (
-        <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, zIndex: 10 }}>
+        <div style={{ position: 'absolute', bottom: 'env(safe-area-inset-bottom, 12px)', left: 0, right: 0, zIndex: 10, paddingBottom: 4 }}>
           <Group justify="center" gap="sm" mb={8}>
             <ActionIcon variant="white" radius="xl" size="md"
               onClick={() => focusPin(activePin - 1)} disabled={activePin === 0}
@@ -348,8 +392,8 @@ export default function MapViewComponent() {
           </Group>
 
           {currentPin && (
-            <div style={{ padding: '0 20px' }}>
-              <Card shadow="md" radius="md" padding="md"
+            <div style={{ padding: '0 12px' }}>
+              <Card shadow="md" radius="md" padding="sm"
                 style={{ border: '2px solid #b91c1c', maxWidth: 420, margin: '0 auto' }}
               >
                 <Group wrap="nowrap" gap="sm">
