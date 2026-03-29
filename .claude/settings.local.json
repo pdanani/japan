@@ -12,7 +12,8 @@
       "WebFetch(domain:docs.google.com)",
       "Bash(ssh-keygen -t ed25519 -C \"pdanani@github\" -f ~/.ssh/id_ed25519 -N \"\")",
       "Bash(open \"https://github.com/settings/ssh/new\")",
-      "Bash(ssh -T git@github.com)"
+      "Bash(ssh -T git@github.com)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)"
     ]
   }
 }

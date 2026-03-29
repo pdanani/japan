@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import {
   Timeline as MTimeline, Title, Text, Badge, Group, Card, Button, Switch,
   ThemeIcon, ScrollArea, UnstyledButton, Accordion, SimpleGrid,
@@ -28,8 +28,8 @@ const TYPE_CONFIG = {
 // source: where the suggestion came from
 const SOURCE_CONFIG = {
   sheet:      { icon: IconTable, color: 'blue', label: 'Timeline', tip: 'PB Draft Timeline' },
-  activities: { icon: IconChecklist, color: 'teal', label: 'Activities', tip: 'Activity Menu sheet' },
-  food:       { icon: IconToolsKitchen2, color: 'orange', label: 'Food', tip: 'Food Menu sheet' },
+  activities: { icon: IconTable, color: 'teal', label: 'Excel', tip: 'Activity Menu sheet' },
+  food:       { icon: IconTable, color: 'teal', label: 'Excel', tip: 'Food Menu sheet' },
   maps:       { icon: IconBrandGoogleMaps, color: 'red', label: 'Maps', tip: 'Google Maps saves' },
   tabelog:    { icon: IconStarFilled, color: 'yellow', label: 'Tabelog', tip: 'Tabelog Top Spots' },
   ai:         { icon: IconRobot, color: 'grape', label: 'AI', tip: 'AI suggested' },
@@ -180,12 +180,46 @@ export default function TimelineSection() {
   const [showAllSaves, setShowAllSaves] = useState(false);
   const [showAllTabelog, setShowAllTabelog] = useState(false);
   const [maxPrice, setMaxPrice] = useState(15000);
+  const [appliedPrice, setAppliedPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
-  const [maxDistance, setMaxDistance] = useState(3.0);
+  const [maxDistance, setMaxDistance] = useState(100);
+  const [appliedDist, setAppliedDist] = useState(100);
+
+  // Debounced filter application — slider moves instantly, filtering waits 300ms
+  const priceTimer = useRef(null);
+  const distTimer = useRef(null);
+  const onPriceChange = (v) => {
+    setMaxPrice(v);
+    clearTimeout(priceTimer.current);
+    priceTimer.current = setTimeout(() => { lockScroll(); setAppliedPrice(v); setShowAllTabelog(false); }, 300);
+  };
+  const onDistChange = (sliderVal) => {
+    setMaxDistance(sliderVal);
+    clearTimeout(distTimer.current);
+    distTimer.current = setTimeout(() => { lockScroll(); setAppliedDist(sliderVal); }, 300);
+  };
+
+  // Convert slider value (0-100) to miles for filtering
+  const fromSliderToMiles = (s) => {
+    if (s >= 100) return 3.0;
+    if (s <= 70) return s / 70;
+    return 1.0 + (s - 70) / 20;
+  };
   const [cuisineFilter, setCuisineFilter] = useState([]);
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [recTab, setRecTab] = useState('tabelog');
+  const [accordionOpen, setAccordionOpen] = useState(null);
   const INITIAL_SHOW = 10;
+
+  // Scroll-lock: save scrollY before state changes, restore in useLayoutEffect (before paint)
+  const scrollLock = useRef(null);
+  const lockScroll = () => { scrollLock.current = window.scrollY; };
+  useLayoutEffect(() => {
+    if (scrollLock.current !== null) {
+      window.scrollTo(0, scrollLock.current);
+      scrollLock.current = null;
+    }
+  });
 
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
@@ -217,7 +251,7 @@ export default function TimelineSection() {
       const c = getCoord(item);
       const distKm = c ? haversine(userLoc[0], userLoc[1], c[0], c[1]) : 9999;
       return { ...item, _dist: distKm * KM_TO_MI };
-    }).filter(item => maxDistance >= 3.0 || item._dist <= maxDistance)
+    }).filter(item => appliedDist >= 100 || item._dist <= fromSliderToMiles(appliedDist))
       .sort((a, b) => a._dist - b._dist);
   };
 
@@ -253,7 +287,7 @@ export default function TimelineSection() {
             return (
               <UnstyledButton
                 key={d.day}
-                onClick={() => { setSelected(d.day); setShowAllSaves(false); setShowAllTabelog(false); setMaxPrice(15000); setMinRating('all'); setMaxDistance(3.0); setCuisineFilter([]); setJapaneseOnly(false); }}
+                onClick={() => { setSelected(d.day); setAccordionOpen(null); setShowAllSaves(false); setShowAllTabelog(false); setMaxPrice(15000); setAppliedPrice(15000); setMinRating('all'); setMaxDistance(100); setAppliedDist(100); setCuisineFilter([]); setJapaneseOnly(false); }}
                 style={{
                   flexShrink: 0,
                   minWidth: 82,
@@ -362,7 +396,7 @@ export default function TimelineSection() {
 
           {/* Nearby Recommendations — Two tabs: Your Saves + Tabelog */}
           {hasNearby && (
-            <Accordion variant="contained" radius="md" mt="lg">
+            <Accordion variant="contained" radius="md" mt="lg" value={accordionOpen} onChange={setAccordionOpen}>
               <Accordion.Item value="nearby">
                 <Accordion.Control icon={<IconFlame size={20} color="#e85d04" />}>
                   <Group gap="xs">
@@ -375,7 +409,7 @@ export default function TimelineSection() {
                     Grouped by district — {day.notes || day.location}
                   </Text>
                 </Accordion.Control>
-                <Accordion.Panel style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <Accordion.Panel>
                   {/* Sort by nearest + distance filter */}
                   <Group justify="flex-end" mb="sm" wrap="wrap" gap="sm">
                     {sortNearest && userLoc && (
@@ -400,8 +434,8 @@ export default function TimelineSection() {
                           };
                           return (
                             <Slider
-                              value={toSlider(maxDistance)}
-                              onChange={(s) => setMaxDistance(Math.round(fromSlider(s) * 10) / 10)}
+                              value={maxDistance}
+                              onChange={onDistChange}
                               min={0}
                               max={100}
                               step={1}
@@ -472,7 +506,7 @@ export default function TimelineSection() {
                                 </SimpleGrid>
                                 {!showAllSaves && hidden > 0 && (
                                   <Button variant="subtle" color="gray" fullWidth mt="sm" size="xs"
-                                    onClick={() => setShowAllSaves(true)}>
+                                    onClick={() => { lockScroll(); setShowAllSaves(true); }}>
                                     Show {hidden} more places
                                   </Button>
                                 )}
@@ -503,7 +537,7 @@ export default function TimelineSection() {
                               ))}
                               {!showAllSaves && hidden > 0 && (
                                 <Button variant="subtle" color="gray" fullWidth mt="sm" size="xs"
-                                  onClick={() => setShowAllSaves(true)}>
+                                  onClick={() => { lockScroll(); setShowAllSaves(true); }}>
                                   Show {hidden} more places
                                 </Button>
                               )}
@@ -515,62 +549,65 @@ export default function TimelineSection() {
 
                     {tabelogList.length > 0 && (
                       <Tabs.Panel value="tabelog">
-                        {/* Filters — compact */}
-                        <Stack gap={8} mb="sm">
-                          <Group justify="space-between">
-                            <Group gap={6}>
-                              <Text size="xs" fw={500} c="dimmed">Price:</Text>
-                              <div style={{ width: 140, padding: '0 4px' }}>
-                                <Slider
-                                  value={maxPrice}
-                                  onChange={(v) => { setMaxPrice(v); setShowAllTabelog(false); }}
-                                  min={1000}
-                                  max={15000}
-                                  step={1000}
-                                  label={(v) => v >= 15000 ? 'Any' : `¥${(v / 1000).toFixed(0)}k`}
-                                  color="orange"
-                                  size="xs"
-                                  marks={[{ value: 1000, label: '¥1k' }, { value: 6000, label: '¥6k' }, { value: 15000, label: 'Any' }]}
-                                />
-                              </div>
-                            </Group>
-                            <Group gap={6} wrap="nowrap">
-                              <Text size="xs" fw={500} c="dimmed">Rating:</Text>
-                              <SegmentedControl
+                        {/* Filters */}
+                        <Stack gap="sm" mb="md">
+                          {/* Price slider */}
+                          <Group gap={6} wrap="nowrap">
+                            <Text size="xs" fw={500} c="dimmed" style={{ flexShrink: 0 }}>Price:</Text>
+                            <div style={{ flex: 1, padding: '0 4px 16px 4px' }}>
+                              <Slider
+                                value={maxPrice}
+                                onChange={onPriceChange}
+                                min={1000}
+                                max={15000}
+                                step={1000}
+                                label={(v) => v >= 15000 ? 'Any' : `¥${(v / 1000).toFixed(0)}k`}
+                                color="orange"
                                 size="xs"
-                                radius="xl"
-                                color="yellow"
-                                value={minRating}
-                                onChange={(v) => { setMinRating(v); setShowAllTabelog(false); }}
-                                data={[
-                                  { label: 'All', value: 'all' },
-                                  { label: '3.9+', value: '3.9' },
-                                  { label: '3.8+', value: '3.8' },
-                                  { label: '3.7+', value: '3.7' },
-                                  { label: '3.6+', value: '3.6' },
-                                ]}
+                                marks={[{ value: 1000, label: '¥1k' }, { value: 6000, label: '¥6k' }, { value: 15000, label: 'Any' }]}
                               />
-                              {(maxPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly) && (
-                                <Button
-                                  variant="subtle"
-                                  color="gray"
-                                  size="compact-xs"
-                                  style={{ flexShrink: 0 }}
-                                  onClick={() => { setMaxPrice(15000); setMinRating('all'); setMaxDistance(3.0); setCuisineFilter([]); setJapaneseOnly(false); setShowAllTabelog(false); }}
-                                >
-                                  Reset
-                                </Button>
-                              )}
-                            </Group>
-                            <Switch
-                              size="xs"
-                              label="Japanese food only"
-                              checked={japaneseOnly}
-                              onChange={(e) => { setJapaneseOnly(e.currentTarget.checked); setCuisineFilter([]); setShowAllTabelog(false); }}
-                              color="red"
-                              styles={{ label: { fontSize: 11, color: '#9ca3af', paddingLeft: 4 } }}
-                            />
+                            </div>
                           </Group>
+
+                          {/* Rating + Reset */}
+                          <Group gap={6} wrap="nowrap">
+                            <Text size="xs" fw={500} c="dimmed" style={{ flexShrink: 0 }}>Rating:</Text>
+                            <SegmentedControl
+                              size="xs"
+                              radius="xl"
+                              color="yellow"
+                              value={minRating}
+                              onChange={(v) => { lockScroll(); setMinRating(v); setShowAllTabelog(false); }}
+                              data={[
+                                { label: 'All', value: 'all' },
+                                { label: '3.9+', value: '3.9' },
+                                { label: '3.8+', value: '3.8' },
+                                { label: '3.7+', value: '3.7' },
+                                { label: '3.6+', value: '3.6' },
+                              ]}
+                            />
+                            {(appliedPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly) && (
+                              <Button
+                                variant="subtle"
+                                color="gray"
+                                size="compact-xs"
+                                style={{ flexShrink: 0 }}
+                                onClick={() => { lockScroll(); setMaxPrice(15000); setAppliedPrice(15000); setMinRating('all'); setMaxDistance(100); setAppliedDist(100); setCuisineFilter([]); setJapaneseOnly(false); setShowAllTabelog(false); }}
+                              >
+                                Reset
+                              </Button>
+                            )}
+                          </Group>
+
+                          {/* Japanese food only */}
+                          <Switch
+                            size="xs"
+                            label="Japanese food only"
+                            checked={japaneseOnly}
+                            onChange={(e) => { lockScroll(); setJapaneseOnly(e.currentTarget.checked); setCuisineFilter([]); setShowAllTabelog(false); }}
+                            color="red"
+                            styles={{ label: { fontSize: 12, color: '#9ca3af', paddingLeft: 6 } }}
+                          />
                           <ScrollArea type="never">
                             <Group gap={4} wrap="nowrap">
                               {(() => {
@@ -598,6 +635,7 @@ export default function TimelineSection() {
                                       radius="xl"
                                       style={{ cursor: 'pointer', flexShrink: 0 }}
                                       onClick={() => {
+                                        lockScroll();
                                         setCuisineFilter(prev =>
                                           prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]
                                         );
@@ -630,11 +668,11 @@ export default function TimelineSection() {
 
                           let filtered = tabelogList;
 
-                          // Apply price filter (slider)
-                          if (maxPrice < 15000) {
+                          // Apply price filter (debounced)
+                          if (appliedPrice < 15000) {
                             filtered = filtered.filter(r => {
                               const p = parsePrice(r.price);
-                              return p <= maxPrice;
+                              return p <= appliedPrice;
                             });
                           }
 
@@ -685,7 +723,7 @@ export default function TimelineSection() {
                                 </SimpleGrid>
                                 {!showAllTabelog && hidden > 0 && (
                                   <Button variant="subtle" color="orange" fullWidth mt="sm" size="xs"
-                                    onClick={() => setShowAllTabelog(true)}>
+                                    onClick={() => { lockScroll(); setShowAllTabelog(true); }}>
                                     Show {hidden} more restaurants
                                   </Button>
                                 )}
@@ -716,7 +754,7 @@ export default function TimelineSection() {
                               ))}
                               {!showAllTabelog && hidden > 0 && (
                                 <Button variant="subtle" color="orange" fullWidth mt="sm" size="xs"
-                                  onClick={() => setShowAllTabelog(true)}>
+                                  onClick={() => { lockScroll(); setShowAllTabelog(true); }}>
                                   Show {hidden} more restaurants
                                 </Button>
                               )}

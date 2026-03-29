@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
 import { Container, Tabs, Notification } from '@mantine/core';
 import {
-  IconClock, IconToolsKitchen2, IconMap2, IconChecklist, IconUsers, IconRefresh,
+  IconClock, IconToolsKitchen2, IconMap2, IconChecklist, IconUsers, IconRefresh, IconMapPin,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
 import Hero from './components/Hero';
 import Timeline from './components/Timeline';
+import MapViewComponent from './components/MapView';
 import FoodMenu from './components/FoodMenu';
 import Activities from './components/Activities';
 import Planning from './components/Planning';
@@ -82,6 +83,7 @@ export default function App() {
         <Tabs defaultValue="timeline" variant="unstyled" style={{ maxWidth: 960, margin: '0 auto' }}>
           <Tabs.List className="nav-inner">
             <Tabs.Tab value="timeline" className="nav-btn" leftSection={<IconClock size={16} />}>Timeline</Tabs.Tab>
+            <Tabs.Tab value="map" className="nav-btn" leftSection={<IconMapPin size={16} />}>Map</Tabs.Tab>
             <Tabs.Tab value="food" className="nav-btn" leftSection={<IconToolsKitchen2 size={16} />}>Food</Tabs.Tab>
             <Tabs.Tab value="activities" className="nav-btn" leftSection={<IconMap2 size={16} />}>Activities</Tabs.Tab>
             <Tabs.Tab value="planning" className="nav-btn" leftSection={<IconChecklist size={16} />}>Planning</Tabs.Tab>
@@ -90,6 +92,7 @@ export default function App() {
 
           <Container size="lg" py="xl">
             <Tabs.Panel value="timeline"><Timeline /></Tabs.Panel>
+            <Tabs.Panel value="map"><MapViewComponent /></Tabs.Panel>
             <Tabs.Panel value="food"><FoodMenu data={food} /></Tabs.Panel>
             <Tabs.Panel value="activities"><Activities data={activities} /></Tabs.Panel>
             <Tabs.Panel value="planning"><Planning /></Tabs.Panel>
