@@ -7,7 +7,6 @@ import {
 import {
   IconStarFilled, IconBookmark, IconNavigation,
   IconChevronLeft, IconChevronRight, IconRoute, IconTimeline,
-  IconList,
 } from '@tabler/icons-react';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
@@ -29,18 +28,10 @@ const TYPE_CONFIG = {
   activity: { color: '#ca8a04', label: 'Activity' },
 };
 
-export default function MapViewComponent({ initialDay, onViewList }) {
+export default function MapViewComponent() {
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const [selected, setSelected] = useState(initialDay || 1);
-
-  // Sync with parent when initialDay changes (e.g. navigating from timeline)
-  useEffect(() => {
-    if (initialDay != null && initialDay !== selected) {
-      setSelected(initialDay);
-    }
-  }, [initialDay]);
-
+  const [selected, setSelected] = useState(1);
   const [activePin, setActivePin] = useState(0);
   const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
   const [showRoute, setShowRoute] = useState(true);
@@ -277,7 +268,7 @@ export default function MapViewComponent({ initialDay, onViewList }) {
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
 
       {/* Day selector */}
-      <div style={{ position: 'absolute', top: 12, left: 12, right: onViewList ? 110 : 60, zIndex: 10 }}>
+      <div style={{ position: 'absolute', top: 12, left: 12, right: 60, zIndex: 10 }}>
         <ScrollArea type="never">
           <Group gap={6} wrap="nowrap">
             {timeline.map(d => {
@@ -304,25 +295,6 @@ export default function MapViewComponent({ initialDay, onViewList }) {
           </Group>
         </ScrollArea>
       </div>
-
-      {/* View List toggle */}
-      {onViewList && (
-        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
-          <UnstyledButton
-            onClick={() => onViewList(selected)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '6px 12px', borderRadius: 20,
-              background: '#fff', color: '#1f2937',
-              border: '1.5px solid #e5e7eb',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-              fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
-            }}
-          >
-            <IconList size={14} /> View List
-          </UnstyledButton>
-        </div>
-      )}
 
       {/* Layer toggles */}
       <div style={{ position: 'absolute', top: 60, left: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>

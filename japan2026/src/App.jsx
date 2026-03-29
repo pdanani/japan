@@ -20,7 +20,6 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeTab, setActiveTab] = useState('timeline');
-  const [selectedDay, setSelectedDay] = useState(1);
 
   const showToast = useCallback((message, color) => {
     setToast({ message, color });
@@ -95,22 +94,12 @@ export default function App() {
       </nav>
 
       {/* Map — full bleed, no hero, no container */}
-      {activeTab === 'map' && (
-        <MapViewComponent
-          initialDay={selectedDay}
-          onViewList={(day) => { setSelectedDay(day); setActiveTab('timeline'); }}
-        />
-      )}
+      {activeTab === 'map' && <MapViewComponent />}
 
       {/* All other tabs — inside container */}
       {activeTab !== 'map' && (
         <Container size="lg" py="xl">
-          {activeTab === 'timeline' && (
-            <Timeline
-              selectedDay={selectedDay}
-              onViewMap={(day) => { setSelectedDay(day); setActiveTab('map'); }}
-            />
-          )}
+          {activeTab === 'timeline' && <Timeline />}
           {activeTab === 'food' && <FoodMenu data={food} />}
           {activeTab === 'activities' && <Activities data={activities} />}
           {activeTab === 'planning' && <Planning />}
