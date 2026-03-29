@@ -5,14 +5,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 
-let MapView, Marker, Polyline, Callout;
+let MapView, Marker, Polyline;
 if (Platform.OS !== 'web') {
   const Maps = require('react-native-maps');
   MapView = Maps.default;
   Marker = Maps.Marker;
   Polyline = Maps.Polyline;
-  Callout = Maps.Callout;
-  const Circle = Maps.Circle;
 }
 import { colors, badgeColor } from '../theme';
 import { useTheme } from '../ThemeContext';
@@ -62,20 +60,6 @@ function openDirections(lat, lng, label) {
   Linking.openURL(url);
 }
 
-function PinCallout({ title, subtitle, type, coord }) {
-  return (
-    <Callout tooltip={false} onPress={() => openDirections(coord.latitude, coord.longitude, title)}>
-      <View style={calloutStyles.container}>
-        <Text style={calloutStyles.title} numberOfLines={2}>{title}</Text>
-        {subtitle ? <Text style={calloutStyles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
-        <View style={calloutStyles.dirRow}>
-          <Ionicons name="navigate" size={14} color={colors.primary} />
-          <Text style={calloutStyles.dirText}>Get Directions</Text>
-        </View>
-      </View>
-    </Callout>
-  );
-}
 
 export default function MapScreen() {
   const { colors: tc, isDark } = useTheme();
@@ -182,21 +166,8 @@ export default function MapScreen() {
       .filter(Boolean);
   }, [savedList]);
 
-  // Carousel only navigates itinerary pins
-  const carouselPins = useMemo(() => {
-    if (!layers.itinerary) return [];
-    return itineraryPins.map((p, i) => ({
-      key: `itin-${i}`,
-      kind: 'itinerary',
-      title: p.activity,
-      subtitle: `${p.time} · ${p.cfg.label}`,
-      color: p.cfg.color,
-      icon: p.cfg.icon,
-      number: p.index + 1,
-      coord: p.coord,
-      mapUrl: p.mapUrl,
-    }));
-  }, [layers.itinerary, itineraryPins]);
+  // Carousel shows all visible pins (itinerary + tabelog + saves)
+  const carouselPins = allVisiblePins;
 
   // All visible pins for map display (markers)
   const allVisiblePins = useMemo(() => {
@@ -259,13 +230,15 @@ export default function MapScreen() {
     smoothPanTo(carouselPins[index]?.coord);
   }, [carouselPins, smoothPanTo]);
 
-  // When an itinerary marker is pressed, scroll carousel to it
+  // When any marker is pressed, scroll carousel to it
   const onMarkerPress = useCallback((pinKey) => {
     const idx = carouselPins.findIndex(p => p.key === pinKey);
     if (idx >= 0) {
       setActivePin(idx);
       carouselRef.current?.scrollToOffset({ offset: idx * (CARD_WIDTH + 12), animated: true });
-      smoothPanTo(carouselPins[idx]?.coord);
+      // Only pan for itinerary pins; tabelog/saves stay in place
+      const pin = carouselPins[idx];
+      if (pin?.kind === 'itinerary') smoothPanTo(pin.coord);
     }
   }, [carouselPins, CARD_WIDTH, smoothPanTo]);
 
@@ -359,19 +332,13 @@ export default function MapScreen() {
               ]}>
                 <Text style={styles.markerNumber}>{pin.index + 1}</Text>
               </View>
-              <PinCallout
-                title={pin.activity}
-                subtitle={`${pin.time} · ${pin.cfg.label}`}
-                type="itinerary"
-                coord={pin.coord}
-              />
             </Marker>
           );
         })}
 
         {/* Tabelog pins */}
         {layers.tabelog && tabelogPins.map((pin, i) => {
-          const isActive = false /* tabelog pins don't highlight */;
+          const isActive = carouselPins[activePin]?.key === `tab-${i}`;
           return (
             <Marker
               key={`tab-${selected}-${i}`}
@@ -379,24 +346,18 @@ export default function MapScreen() {
               onPress={() => onMarkerPress(`tab-${i}`)}
             >
               <View style={[
-                styles.markerCircle, { backgroundColor: '#ea580c' },
-                isActive && styles.markerActive,
+                styles.markerSmall, { backgroundColor: '#ea580c' },
+                isActive && styles.markerSmallActive,
               ]}>
-                <Ionicons name="star" size={12} color="#fff" />
+                <Ionicons name="star" size={10} color="#fff" />
               </View>
-              <PinCallout
-                title={pin.name}
-                subtitle={`#${pin.rank} · ${pin.rating}★ · ${pin.cuisine} · ${pin.price}`}
-                type="tabelog"
-                coord={pin.coord}
-              />
             </Marker>
           );
         })}
 
         {/* Saved place pins */}
         {layers.saves && savedPins.map((pin, i) => {
-          const isActive = false /* saves pins don't highlight */;
+          const isActive = carouselPins[activePin]?.key === `save-${i}`;
           return (
             <Marker
               key={`save-${selected}-${i}`}
@@ -404,17 +365,11 @@ export default function MapScreen() {
               onPress={() => onMarkerPress(`save-${i}`)}
             >
               <View style={[
-                styles.markerCircle, { backgroundColor: '#2563eb' },
-                isActive && styles.markerActive,
+                styles.markerSmall, { backgroundColor: '#2563eb' },
+                isActive && styles.markerSmallActive,
               ]}>
-                <Ionicons name="bookmark" size={12} color="#fff" />
+                <Ionicons name="bookmark" size={10} color="#fff" />
               </View>
-              <PinCallout
-                title={pin.name}
-                subtitle={`${pin.type}${pin.area ? ' · ' + pin.area : ''}`}
-                type="saves"
-                coord={pin.coord}
-              />
             </Marker>
           );
         })}
@@ -590,7 +545,7 @@ export default function MapScreen() {
         </ScrollView>
       )}
 
-      {/* Bottom carousel — itinerary only */}
+      {/* Bottom carousel — all visible pins */}
       {carouselPins.length > 0 && (
         <View style={styles.carouselWrap}>
           {/* Prev / Next buttons */}
@@ -663,12 +618,21 @@ export default function MapScreen() {
                       <Text style={[styles.cardTitle, { color: tc.text }]} numberOfLines={1}>{item.title}</Text>
                       <Text style={[styles.cardSub, { color: tc.textSecondary }]} numberOfLines={1}>{item.subtitle}</Text>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => openDirections(item.coord.latitude, item.coord.longitude, item.title)}
-                      style={[styles.dirBtn, { backgroundColor: tc.border }]}
-                    >
-                      <Ionicons name="navigate" size={18} color={colors.primary} />
-                    </TouchableOpacity>
+                    {item.mapUrl ? (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(item.mapUrl)}
+                        style={[styles.dirBtn, { backgroundColor: tc.border }]}
+                      >
+                        <Ionicons name="navigate" size={18} color={colors.primary} />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => openDirections(item.coord.latitude, item.coord.longitude, item.title)}
+                        style={[styles.dirBtn, { backgroundColor: tc.border }]}
+                      >
+                        <Ionicons name="navigate" size={18} color={colors.primary} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -689,13 +653,6 @@ export default function MapScreen() {
   );
 }
 
-const calloutStyles = StyleSheet.create({
-  container: { width: 220, padding: 4 },
-  title: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 2 },
-  subtitle: { fontSize: 12, color: colors.textSecondary, marginBottom: 6 },
-  dirRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  dirText: { fontSize: 13, fontWeight: '600', color: colors.primary },
-});
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
@@ -709,6 +666,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 3, elevation: 4,
   },
   markerNumber: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  markerSmall: {
+    width: 22, height: 22, borderRadius: 11,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#fff',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2, shadowRadius: 2, elevation: 3,
+  },
+  markerSmallActive: {
+    width: 28, height: 28, borderRadius: 14,
+    borderWidth: 2.5, borderColor: '#facc15',
+  },
 
   // Day selector
   dayOverlay: {
