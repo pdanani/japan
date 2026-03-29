@@ -8,4 +8,3 @@ dist/
 *.log
 npm-debug.log*
 .vite/
-japan2026-mobile/

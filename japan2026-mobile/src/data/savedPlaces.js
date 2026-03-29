@@ -1,0 +1,1 @@
+../../../shared/data/savedPlaces.js
