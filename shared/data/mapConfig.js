@@ -3,7 +3,7 @@
 export const MAP_PROVIDER = 'mapbox'; // 'mapbox' | 'apple'
 
 // Mapbox config — get a free token at https://account.mapbox.com/
-export const MAPBOX_TOKEN = 'REDACTED_TOKEN';
+export const MAPBOX_TOKEN = typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAPBOX_TOKEN || '';
 
 // Apple MapKit JS config (for future use)
 // Requires Apple Developer Program membership ($99/yr)
