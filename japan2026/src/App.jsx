@@ -90,9 +90,11 @@ export default function App() {
             <Tabs.Tab value="group" className="nav-btn" leftSection={<IconUsers size={16} />}>Group</Tabs.Tab>
           </Tabs.List>
 
+          <Tabs.Panel value="map" style={{ padding: 0 }}>
+            <MapViewComponent />
+          </Tabs.Panel>
           <Container size="lg" py="xl">
             <Tabs.Panel value="timeline"><Timeline /></Tabs.Panel>
-            <Tabs.Panel value="map"><MapViewComponent /></Tabs.Panel>
             <Tabs.Panel value="food"><FoodMenu data={food} /></Tabs.Panel>
             <Tabs.Panel value="activities"><Activities data={activities} /></Tabs.Panel>
             <Tabs.Panel value="planning"><Planning /></Tabs.Panel>
