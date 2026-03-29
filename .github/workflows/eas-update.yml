@@ -6,6 +6,12 @@ on:
     paths:
       - 'japan2026-mobile/**'
       - 'shared/**'
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Update message'
+        required: false
+        default: 'Manual publish'
 
 jobs:
   update:
@@ -31,4 +37,4 @@ jobs:
 
       - name: Publish update
         working-directory: japan2026-mobile
-        run: eas update --branch preview --message "${{ github.event.head_commit.message }}" --non-interactive
+        run: eas update --branch preview --message "${{ github.event.inputs.message || github.event.head_commit.message || 'Auto publish' }}" --non-interactive
