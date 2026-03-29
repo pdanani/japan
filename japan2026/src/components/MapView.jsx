@@ -461,6 +461,13 @@ export default function MapViewComponent() {
             border: `1px solid ${ov.border}`,
             maxHeight: 'calc(100vh - 280px)', overflowY: 'auto',
           }}>
+            {/* Close */}
+            <UnstyledButton
+              onClick={() => setShowFilters(false)}
+              style={{ alignSelf: 'flex-end', marginBottom: 4 }}
+            >
+              <IconX size={18} color={ov.textDim} />
+            </UnstyledButton>
             {/* Price */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <Text size="xs" fw={700} c="dimmed" tt="uppercase">Price</Text>

@@ -512,6 +512,14 @@ export default function MapScreen() {
           style={[styles.filterPanel, { backgroundColor: tc.card, borderColor: tc.border, maxHeight: Dimensions.get('window').height - 300 }]}
           showsVerticalScrollIndicator={false}
         >
+          {/* Close button */}
+          <TouchableOpacity
+            onPress={() => setShowFilters(false)}
+            style={{ alignSelf: 'flex-end', marginBottom: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close-circle" size={24} color={tc.textMuted} />
+          </TouchableOpacity>
           {/* Price */}
           <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>PRICE</Text>
           <Text style={[styles.fpValue, { color: '#ea580c' }]}>
