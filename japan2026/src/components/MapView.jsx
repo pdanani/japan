@@ -501,7 +501,7 @@ export default function MapViewComponent() {
               background: ov.bg, borderRadius: '16px 16px 0 0',
               padding: '12px 20px calc(env(safe-area-inset-bottom, 20px) + 16px)',
               boxShadow: '0 -4px 24px rgba(0,0,0,0.2)',
-              maxHeight: '60vh', overflowY: 'auto',
+              maxHeight: '75vh', overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
             }}>
               {/* Handle bar */}
