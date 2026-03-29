@@ -29,6 +29,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: japan2026
+      - name: Resolve symlinks for build
+        run: |
+          cd japan2026/src/data
+          for f in *.js; do
+            if [ -L "$f" ]; then
+              target=$(readlink "$f")
+              rm "$f"
+              cp "$target" "$f"
+            fi
+          done
       - name: Build
         run: npm run build
         working-directory: japan2026
