@@ -10,7 +10,6 @@ import {
   IconFlame, IconTable, IconBrandGoogleMaps,
   IconRobot,
 } from '@tabler/icons-react';
-import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 
@@ -47,7 +46,7 @@ function SourceBadge({ source }) {
   );
 }
 
-export default function TimelineSection({ onNearbyRecs }) {
+export default function TimelineSection({ timeline, onNearbyRecs }) {
   const [selected, setSelected] = useState(1);
 
   const day = timeline.find(d => d.day === selected);

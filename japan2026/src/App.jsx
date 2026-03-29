@@ -12,7 +12,8 @@ import TravelGroup from './components/TravelGroup';
 import NearbyRecs from './components/NearbyRecs';
 
 const MapViewComponent = lazy(() => import('./components/MapView'));
-import { SHEET_ID, initialFood, initialActivities } from './data/tripData';
+import { SHEET_ID, initialFood, initialActivities, timeline as initialTimeline } from './data/tripData';
+import { parseTimelineCSV } from './utils';
 import './App.css';
 
 const PRIMARY_TABS = [
@@ -31,6 +32,7 @@ const ALL_TABS = [...PRIMARY_TABS, ...OVERFLOW_TABS];
 export default function App() {
   const [food, setFood] = useState(initialFood);
   const [activities, setActivities] = useState(initialActivities);
+  const [timelineData, setTimelineData] = useState(initialTimeline);
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeTab, setActiveTab] = useState('timeline');
@@ -87,6 +89,7 @@ export default function App() {
       const sheets = [
         { gidParam: 'gid=0', target: 'activities' },
         { gidParam: 'sheet=Food%20Menu', target: 'food' },
+        { gidParam: 'sheet=PB%20Draft%20Timeline', target: 'timeline', noHeader: true },
       ];
       let ok = 0;
       for (const s of sheets) {
@@ -95,31 +98,37 @@ export default function App() {
           const res = await fetch(url);
           if (!res.ok) throw new Error(res.status);
           const csv = await res.text();
-          const { data } = Papa.parse(csv, { header: true, skipEmptyLines: true });
-          if (!data?.length) continue;
-          if (s.target === 'food') {
-            setFood(data.filter(r => r.Details?.trim()).map(r => ({
-              name: (r.Name || '').trim(),
-              category: (r.Category || '').trim(),
-              details: (r.Details || '').trim(),
-              location: (r.Location || '').trim(),
-              neighborhood: (r.Neighborhood || '').trim(),
-              notes: (r['Notes, etc'] || '').trim(),
-              link: (r.Link || '').trim(),
-              interested: (r['Others Interested'] || '').trim(),
-            })));
+          if (s.target === 'timeline') {
+            const { data } = Papa.parse(csv, { header: false, skipEmptyLines: false });
+            const parsed = parseTimelineCSV(data);
+            if (parsed && parsed.length > 0) { setTimelineData(parsed); ok++; }
           } else {
-            setActivities(data.filter(r => r.Details?.trim()).map(r => ({
-              name: (r.Name || '').trim(),
-              category: (r.Category || '').trim(),
-              details: (r.Details || '').trim(),
-              location: (r.Location || '').trim(),
-              notes: (r['Notes, etc'] || '').trim(),
-              link: (r.Link || '').trim(),
-              interested: (r['Others Interested'] || '').trim(),
-            })));
+            const { data } = Papa.parse(csv, { header: true, skipEmptyLines: true });
+            if (!data?.length) continue;
+            if (s.target === 'food') {
+              setFood(data.filter(r => r.Details?.trim()).map(r => ({
+                name: (r.Name || '').trim(),
+                category: (r.Category || '').trim(),
+                details: (r.Details || '').trim(),
+                location: (r.Location || '').trim(),
+                neighborhood: (r.Neighborhood || '').trim(),
+                notes: (r['Notes, etc'] || '').trim(),
+                link: (r.Link || '').trim(),
+                interested: (r['Others Interested'] || '').trim(),
+              })));
+            } else {
+              setActivities(data.filter(r => r.Details?.trim()).map(r => ({
+                name: (r.Name || '').trim(),
+                category: (r.Category || '').trim(),
+                details: (r.Details || '').trim(),
+                location: (r.Location || '').trim(),
+                notes: (r['Notes, etc'] || '').trim(),
+                link: (r.Link || '').trim(),
+                interested: (r['Others Interested'] || '').trim(),
+              })));
+            }
+            ok++;
           }
-          ok++;
         } catch (e) { console.warn(e); }
       }
       showToast(ok ? `Synced ${ok} sheet(s) successfully!` : 'Could not sync — sheet may not be public', ok ? 'green' : 'red');
@@ -260,7 +269,7 @@ export default function App() {
           {activeTab === 'timeline' && (
             nearbyDay != null
               ? <NearbyRecs dayNumber={nearbyDay} onBack={() => { setNearbyDay(null); window.scrollTo({ top: 0 }); }} />
-              : <Timeline onNearbyRecs={(day) => { setNearbyDay(day); window.scrollTo({ top: 0 }); }} />
+              : <Timeline timeline={timelineData} onNearbyRecs={(day) => { setNearbyDay(day); window.scrollTo({ top: 0 }); }} />
           )}
           {activeTab === 'food' && <FoodMenu data={food} />}
           {activeTab === 'activities' && <Activities data={activities} />}

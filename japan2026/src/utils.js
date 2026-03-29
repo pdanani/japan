@@ -110,6 +110,102 @@ export function filterTabelogList(items, { maxPrice, minRating, cuisineFilter, j
   return filtered;
 }
 
+// Auto-detect schedule item type from activity text
+export function detectActivityType(text) {
+  const t = text.toLowerCase();
+  if (/flight|train|monorail|shinkansen|yamanote|ginza line|bus|taxi|station|→|->/.test(t)) return 'transport';
+  if (/group|everyone|all\b/.test(t)) return 'group';
+  if (/nap|rest|hotel|omo3|check.?in|check.?out|pack|sleep/.test(t)) return 'rest';
+  if (/coffee|ramen|sushi|tempura|bakery|lunch|dinner|breakfast|eat|food|restaurant|cafe|taiyaki|kaisendon|tonkatsu|katsu|eel|unana|udon|soba|gyoza|takoyaki|pancake|ice.?cream|sweet|dessert|snack/.test(t)) return 'food';
+  if (/shop|store|camera|don.?quij|loft|beams|tower.?records|dulton|bic.?camera|sugar|kamawanu|knives|kama.?asa|honke|souvenir|mall/.test(t)) return 'shopping';
+  if (/shrine|temple|park|garden|castle|museum|palace|gate|river|stroll|walk|sky.?view|godzilla|tower|bridge/.test(t)) return 'site';
+  if (/jazz|concert|bar|karaoke|round1|spocha|arcade|glass.?cut|workshop|dye|class|sumo|kimono|kiriko/.test(t)) return 'activity';
+  if (/market|tsukiji|nishiki/.test(t)) return 'food';
+  return 'activity';
+}
+
+// Generate a Google Maps search URL from an activity name
+export function activityMapUrl(activity, location) {
+  const query = encodeURIComponent(`${activity} ${location || ''} Japan`.trim());
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
+// Parse the PB Draft Timeline CSV grid into our timeline array format
+// The sheet is a grid: days as columns, times as rows
+// Row 0: day headers (Day 0, Day 1, ...)
+// Row 1: dates
+// Row 2: locations
+// Row 3: notes
+// Row 4+: time slots with activities
+export function parseTimelineCSV(rows) {
+  if (!rows || rows.length < 5) return null;
+
+  // Find day columns — look for "Day X" or "End" in row 0
+  const headerRow = rows[0];
+  const dateRow = rows[1];
+  const locationRow = rows[2];
+  const notesRow = rows[3];
+
+  const dayColumns = [];
+  for (let col = 1; col < headerRow.length; col++) {
+    const h = (headerRow[col] || '').trim();
+    const dayMatch = h.match(/Day\s+(\d+)/i);
+    if (dayMatch) {
+      dayColumns.push({ col, day: parseInt(dayMatch[1], 10) });
+    } else if (/end/i.test(h)) {
+      dayColumns.push({ col, day: 15 });
+    }
+  }
+
+  if (dayColumns.length === 0) return null;
+
+  const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const timeline = dayColumns.map(({ col, day }) => {
+    const rawDate = (dateRow[col] || '').trim();
+    // Extract day of week from date string like "Saturday, July 11"
+    let dayOfWeek = '';
+    const dowMatch = rawDate.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i);
+    if (dowMatch) dayOfWeek = dowMatch[1];
+    // Clean date — remove day of week prefix
+    const date = rawDate.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s*/i, '').trim() || rawDate;
+
+    const location = (locationRow[col] || '').trim();
+    const notes = (notesRow[col] || '').trim();
+
+    // Parse schedule from time rows (row 4+)
+    const schedule = [];
+    for (let r = 4; r < rows.length; r++) {
+      const timeRaw = (rows[r][0] || '').trim();
+      const activity = (rows[r][col] || '').trim();
+      if (!activity || activity === ' ') continue;
+
+      // Convert time like "5:00" to "5:00 AM"
+      let time = timeRaw;
+      if (/^\d{1,2}:\d{2}$/.test(time)) {
+        const hour = parseInt(time.split(':')[0], 10);
+        const suffix = hour >= 12 && hour < 24 ? 'PM' : 'AM';
+        const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        time = `${h12}:${time.split(':')[1]} ${suffix}`;
+      }
+
+      const type = detectActivityType(activity);
+      const item = { time, activity, type, source: 'sheet' };
+
+      // Add map URL for non-generic activities
+      if (!/nap|rest|flex|dinner$|lunch$|breakfast$/i.test(activity)) {
+        item.mapUrl = activityMapUrl(activity, location);
+      }
+
+      schedule.push(item);
+    }
+
+    return { day, date, dayOfWeek, location, notes, schedule };
+  });
+
+  return timeline;
+}
+
 export function getDayLabel(day) {
   if (day === 0) return 'Travel';
   if (day === 15) return 'End';
