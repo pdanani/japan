@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Container, Tabs, Notification } from '@mantine/core';
+import { Container, Tabs, Notification, Box } from '@mantine/core';
 import {
   IconClock, IconToolsKitchen2, IconMap2, IconChecklist, IconUsers, IconRefresh, IconMapPin,
 } from '@tabler/icons-react';
@@ -90,9 +90,13 @@ export default function App() {
             <Tabs.Tab value="group" className="nav-btn" leftSection={<IconUsers size={16} />}>Group</Tabs.Tab>
           </Tabs.List>
 
-          <Tabs.Panel value="map" style={{ padding: 0 }}>
-            <MapViewComponent />
+          {/* Map tab — full width, outside Container */}
+          <Tabs.Panel value="map">
+            <Box style={{ width: '100vw', position: 'relative', left: '50%', transform: 'translateX(-50%)' }}>
+              <MapViewComponent />
+            </Box>
           </Tabs.Panel>
+
           <Container size="lg" py="xl">
             <Tabs.Panel value="timeline"><Timeline /></Tabs.Panel>
             <Tabs.Panel value="food"><FoodMenu data={food} /></Tabs.Panel>

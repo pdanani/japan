@@ -210,7 +210,7 @@ export default function MapViewComponent() {
         });
       });
 
-      const marker = new mapboxgl.Marker({ element: el })
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([pin.coord.longitude, pin.coord.latitude])
         .addTo(map.current);
       markersRef.current.push(marker);
@@ -254,9 +254,9 @@ export default function MapViewComponent() {
   const currentPin = allVisiblePins[activePin];
 
   return (
-    <div style={{ position: 'relative', height: 'calc(100vh - 200px)', minHeight: 500 }}>
+    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)' }}>
       {/* Map */}
-      <div ref={mapContainer} style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }} />
+      <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
 
       {/* Day selector */}
       <div style={{
