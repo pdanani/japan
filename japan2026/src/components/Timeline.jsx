@@ -335,21 +335,6 @@ export default function TimelineSection() {
             )}
           </Card>
 
-          {onViewMap && (
-            <Button
-              variant="subtle"
-              color="gray"
-              size="compact-xs"
-              radius="xl"
-              leftSection={<IconMap2 size={14} />}
-              onClick={() => onViewMap(selected)}
-              mb="md"
-              style={{ fontWeight: 500 }}
-            >
-              View on Map
-            </Button>
-          )}
-
           {day.schedule.length > 0 ? (
             <MTimeline active={day.schedule.length - 1} bulletSize={28} lineWidth={2} ml="xs">
               {day.schedule.map((s, i) => {

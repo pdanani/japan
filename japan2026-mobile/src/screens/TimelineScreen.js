@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, badgeColor } from '../theme';
 import Card from '../components/Card';
@@ -32,15 +32,7 @@ const SOURCE_CONFIG = {
 
 export default function TimelineScreen() {
   const navigation = useNavigation();
-  const route = useRoute();
   const [selected, setSelected] = useState(1);
-
-  // When arriving from MapScreen with a day param, sync the selected day
-  useEffect(() => {
-    if (route.params?.day != null) {
-      setSelected(route.params.day);
-    }
-  }, [route.params?.day]);
 
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
@@ -115,16 +107,6 @@ export default function TimelineScreen() {
               </Text>
             )}
           </Card>
-
-          {/* View on Map toggle */}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Map', { day: selected })}
-            style={styles.viewToggleBtn}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="map-outline" size={14} color={colors.primary} />
-            <Text style={styles.viewToggleText}>View on Map</Text>
-          </TouchableOpacity>
 
           {/* Timeline items */}
           {day.schedule.length > 0 ? (
@@ -234,17 +216,6 @@ const styles = StyleSheet.create({
   },
   timelineContent: { flex: 1, paddingBottom: 16 },
   activityName: { fontSize: 14, fontWeight: '600', color: colors.text, flex: 1, marginRight: 6 },
-
-  // View toggle button
-  viewToggleBtn: {
-    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end',
-    gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca',
-    marginTop: 10, marginBottom: 4,
-  },
-  viewToggleText: {
-    fontSize: 13, fontWeight: '600', color: colors.primary,
-  },
 
   // Nearby Recs button
   nearbyBtn: {
