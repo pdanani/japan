@@ -471,93 +471,118 @@ export default function MapScreen() {
         )}
       </View>
 
-      {/* Vertical filter panel */}
+      {/* Filter bottom sheet */}
       {layers.tabelog && showFilters && (
-        <ScrollView
-          style={[styles.filterPanel, { backgroundColor: tc.card, borderColor: tc.border, maxHeight: Dimensions.get('window').height - 300 }]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Close button */}
+        <>
+          {/* Backdrop */}
           <TouchableOpacity
+            activeOpacity={1}
             onPress={() => setShowFilters(false)}
-            style={{ alignSelf: 'flex-end', marginBottom: 8 }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close-circle" size={24} color={tc.textMuted} />
-          </TouchableOpacity>
-          {/* Price */}
-          <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>PRICE</Text>
-          {[
-            { label: '≤ ¥1k', value: 1000 },
-            { label: '≤ ¥3k', value: 3000 },
-            { label: '≤ ¥6k', value: 6000 },
-            { label: '≤ ¥10k', value: 10000 },
-            { label: 'Any', value: 15000 },
-          ].map(({ label, value }) => (
-            <TouchableOpacity
-              key={value}
-              onPress={() => setMaxPrice(value)}
-              style={[styles.fpRow, maxPrice === value && { backgroundColor: '#ea580c' }]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.fpRowText, { color: maxPrice === value ? '#fff' : tc.textSecondary }]}>
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+            style={styles.sheetBackdrop}
+          />
+          <View style={[styles.sheetContainer, { backgroundColor: tc.card }]}>
+            {/* Handle bar */}
+            <View style={[styles.sheetHandle, { backgroundColor: tc.textMuted }]} />
 
-          {/* Rating */}
-          <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>RATING</Text>
-          {['all', '3.9', '3.8', '3.7', '3.6'].map(v => (
-            <TouchableOpacity
-              key={v}
-              onPress={() => setMinRating(v)}
-              style={[styles.fpRow, minRating === v && { backgroundColor: '#ea580c' }]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.fpRowText, { color: minRating === v ? '#fff' : tc.textSecondary }]}>
-                {v === 'all' ? 'All ratings' : `${v}+ stars`}
-              </Text>
-            </TouchableOpacity>
-          ))}
+            {/* Header */}
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: tc.text }]}>Filter Restaurants</Text>
+              {hasActiveFilters && (
+                <TouchableOpacity onPress={resetFilters} activeOpacity={0.7}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#ea580c' }}>Reset all</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-          {/* Japanese only */}
-          <View style={[styles.fpSwitchRow, { borderTopColor: tc.border }]}>
-            <Text style={[styles.fpLabel, { color: tc.textSecondary, marginBottom: 0 }]}>JAPANESE ONLY</Text>
-            <Switch
-              value={japaneseOnly}
-              onValueChange={(v) => { setJapaneseOnly(v); setCuisineFilter([]); }}
-              trackColor={{ false: tc.border, true: '#fdba74' }}
-              thumbColor={japaneseOnly ? '#ea580c' : tc.card}
-            />
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: Dimensions.get('window').height * 0.55 }}>
+              {/* Price */}
+              <View style={styles.sheetRow}>
+                <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>PRICE</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#ea580c' }}>
+                  {maxPrice >= 15000 ? 'Any' : `≤ ¥${(maxPrice / 1000).toFixed(0)}k`}
+                </Text>
+              </View>
+              <View style={styles.sheetPillRow}>
+                {[
+                  { label: '¥1k', value: 1000 },
+                  { label: '¥3k', value: 3000 },
+                  { label: '¥6k', value: 6000 },
+                  { label: '¥10k', value: 10000 },
+                  { label: 'Any', value: 15000 },
+                ].map(({ label, value }) => (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => setMaxPrice(value)}
+                    style={[styles.sheetPill, { backgroundColor: maxPrice === value ? '#ea580c' : tc.border }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.sheetPillText, { color: maxPrice === value ? '#fff' : tc.textSecondary }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Rating */}
+              <Text style={[styles.fpLabel, { color: tc.textSecondary, marginTop: 16 }]}>RATING</Text>
+              <View style={styles.sheetPillRow}>
+                {['all', '3.9', '3.8', '3.7', '3.6'].map(v => (
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setMinRating(v)}
+                    style={[styles.sheetPill, { backgroundColor: minRating === v ? '#ea580c' : tc.border }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.sheetPillText, { color: minRating === v ? '#fff' : tc.textSecondary }]}>
+                      {v === 'all' ? 'All' : `${v}+`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Japanese only */}
+              <View style={[styles.sheetSwitchRow, { borderTopColor: tc.border }]}>
+                <Text style={[styles.fpLabel, { color: tc.textSecondary, marginBottom: 0 }]}>JAPANESE ONLY</Text>
+                <Switch
+                  value={japaneseOnly}
+                  onValueChange={(v) => { setJapaneseOnly(v); setCuisineFilter([]); }}
+                  trackColor={{ false: tc.border, true: '#fdba74' }}
+                  thumbColor={japaneseOnly ? '#ea580c' : tc.card}
+                />
+              </View>
+
+              {/* Cuisine tags */}
+              <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>CUISINE</Text>
+              <View style={styles.sheetPillWrap}>
+                {cuisineTags.map(([key, label]) => (
+                  <TouchableOpacity
+                    key={key}
+                    onPress={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                    style={[styles.sheetPill, { backgroundColor: cuisineFilter.includes(key) ? '#ea580c' : tc.border }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.sheetPillText, { color: cuisineFilter.includes(key) ? '#fff' : tc.textSecondary }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* Done button */}
+            <TouchableOpacity
+              onPress={() => setShowFilters(false)}
+              style={styles.sheetDoneBtn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.sheetDoneText}>Done</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Cuisine */}
-          <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>CUISINE</Text>
-          {cuisineTags.map(([key, label]) => (
-            <TouchableOpacity
-              key={key}
-              onPress={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
-              style={[styles.fpRow, cuisineFilter.includes(key) && { backgroundColor: '#ea580c' }]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.fpRowText, { color: cuisineFilter.includes(key) ? '#fff' : tc.textSecondary }]}>
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          {/* Reset */}
-          {hasActiveFilters && (
-            <TouchableOpacity onPress={resetFilters} style={[styles.fpResetBtn, { borderTopColor: tc.border }]} activeOpacity={0.7}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#ea580c' }}>Reset all filters</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
+        </>
       )}
 
-      {/* Selected pin overlay (tabelog/saves) */}
-      {selectedPin && (
+      {/* Selected pin overlay (tabelog/saves) — hidden when filter sheet open */}
+      {!showFilters && selectedPin && (
         <View style={styles.carouselWrap}>
           <TouchableOpacity
             activeOpacity={0.9}
@@ -599,8 +624,8 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Bottom carousel — itinerary only */}
-      {!selectedPin && carouselPins.length > 0 && (
+      {/* Bottom carousel — itinerary only, hidden when filter sheet open */}
+      {!showFilters && !selectedPin && carouselPins.length > 0 && (
         <View style={styles.carouselWrap}>
           {/* Prev / Next buttons */}
           <View style={styles.navRow}>
@@ -772,31 +797,55 @@ const styles = StyleSheet.create({
   layerCountText: { fontSize: 10, fontWeight: '700', color: colors.textSecondary },
 
   // Vertical filter panel
-  filterPanel: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 120 : 100,
-    left: 12, width: 190,
-    borderRadius: 12, padding: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2, shadowRadius: 12, elevation: 8,
-    borderWidth: 1,
+  // Bottom sheet filter
+  sheetBackdrop: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 50,
   },
-  fpLabel: {
-    fontSize: 10, fontWeight: '700', letterSpacing: 1,
-    textTransform: 'uppercase', marginBottom: 6,
+  sheetContainer: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 51,
+    borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    paddingHorizontal: 20, paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15, shadowRadius: 12, elevation: 16,
   },
-  fpValue: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
-  fpRow: {
-    paddingVertical: 7, paddingHorizontal: 10, borderRadius: 8, marginBottom: 3,
+  sheetHandle: {
+    width: 36, height: 4, borderRadius: 2, alignSelf: 'center',
+    marginBottom: 12, opacity: 0.4,
   },
-  fpRowText: { fontSize: 13, fontWeight: '500' },
-  fpSwitchRow: {
+  sheetHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 10, marginVertical: 8,
+    marginBottom: 16,
+  },
+  sheetTitle: { fontSize: 16, fontWeight: '700' },
+  sheetRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 8,
+  },
+  sheetPillRow: {
+    flexDirection: 'row', gap: 8, marginBottom: 8,
+  },
+  sheetPillWrap: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12,
+  },
+  sheetPill: {
+    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20,
+  },
+  sheetPillText: { fontSize: 13, fontWeight: '600' },
+  sheetSwitchRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 12, marginVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  fpResetBtn: {
-    alignItems: 'center', paddingVertical: 10, marginTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
+  sheetDoneBtn: {
+    backgroundColor: '#ea580c', borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center', marginTop: 12,
+  },
+  sheetDoneText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  fpLabel: {
+    fontSize: 11, fontWeight: '700', letterSpacing: 1,
+    textTransform: 'uppercase', marginBottom: 8,
   },
 
   markerActive: {
