@@ -50,13 +50,9 @@ const NON_JAPANESE = [
 
 function parsePrice(p) {
   if (!p) return 0;
-  // Extract all numbers, take the lowest (lunch price)
-  const matches = p.match(/[\d,]+/g);
-  if (!matches) return 0;
-  const nums = matches.map(m => parseInt(m.replace(/,/g, ''), 10)).filter(n => n > 0);
-  return nums.length ? Math.min(...nums) : 0;
+  const m = p.match(/[\d,]+/);
+  return m ? parseInt(m[0].replace(/,/g, ""), 10) : 0;
 }
-
 function openDirections(lat, lng, label) {
   const url = Platform.select({
     ios: `maps:?daddr=${lat},${lng}&q=${encodeURIComponent(label)}`,
@@ -162,7 +158,7 @@ export default function MapScreen() {
   // Build tabelog pins (filtered)
   const tabelogPins = useMemo(() => {
     let filtered = tabelogList;
-    if (Math.round(maxPrice) < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= Math.round(maxPrice));
+    if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
     if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
     if (japaneseOnly) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });

@@ -38,32 +38,34 @@ export const AREA_COORDS = {
   Haneda: [35.5494, 139.7798], JFK: [40.6413, -73.7781],
 };
 
-// Slight offset so pins in the same area don't stack
-let offsetIndex = 0;
-function jitter() {
-  offsetIndex++;
-  const angle = (offsetIndex * 137.508) * (Math.PI / 180); // golden angle
-  const r = 0.0008 * Math.sqrt(offsetIndex % 20);
+// Deterministic offset so pins in the same area don't stack
+// Uses a hash of the item name so position is stable across re-renders
+function jitter(name) {
+  let hash = 0;
+  const str = name || '';
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const angle = ((Math.abs(hash) % 360) * 137.508) * (Math.PI / 180);
+  const r = 0.0006 * (((Math.abs(hash) >> 8) % 20) + 1) / 20;
   return [Math.cos(angle) * r, Math.sin(angle) * r];
 }
 
 // Try to resolve coordinates for a schedule item
 export function getScheduleCoord(item, dayLocation) {
-  // Try parsing the mapUrl query for location name
   const activity = item.activity || '';
 
-  // Match against known areas by activity name
   for (const [key, coord] of Object.entries(AREA_COORDS)) {
     if (activity.toLowerCase().includes(key.toLowerCase())) {
-      const [dLat, dLng] = jitter();
+      const [dLat, dLng] = jitter(activity);
       return { latitude: coord[0] + dLat, longitude: coord[1] + dLng };
     }
   }
 
-  // Fallback to day's location
   if (dayLocation && AREA_COORDS[dayLocation]) {
     const coord = AREA_COORDS[dayLocation];
-    const [dLat, dLng] = jitter();
+    const [dLat, dLng] = jitter(activity);
     return { latitude: coord[0] + dLat, longitude: coord[1] + dLng };
   }
 
@@ -72,17 +74,16 @@ export function getScheduleCoord(item, dayLocation) {
 
 // Resolve coords for a tabelog restaurant
 export function getTabelogCoord(r) {
+  const name = r.name || '';
   if (r.station) {
-    // Direct match
     if (AREA_COORDS[r.station]) {
       const coord = AREA_COORDS[r.station];
-      const [dLat, dLng] = jitter();
+      const [dLat, dLng] = jitter(name);
       return { latitude: coord[0] + dLat, longitude: coord[1] + dLng };
     }
-    // Partial match
     for (const [key, coord] of Object.entries(AREA_COORDS)) {
       if (r.station.toLowerCase().includes(key.toLowerCase())) {
-        const [dLat, dLng] = jitter();
+        const [dLat, dLng] = jitter(name);
         return { latitude: coord[0] + dLat, longitude: coord[1] + dLng };
       }
     }
@@ -92,14 +93,15 @@ export function getTabelogCoord(r) {
 
 // Resolve coords for a saved place
 export function getSavedPlaceCoord(p) {
+  const name = p.name || '';
   if (p.area && AREA_COORDS[p.area]) {
     const coord = AREA_COORDS[p.area];
-    const [dLat, dLng] = jitter();
+    const [dLat, dLng] = jitter(name);
     return { latitude: coord[0] + dLat, longitude: coord[1] + dLng };
   }
   if (p.city && AREA_COORDS[p.city]) {
     const coord = AREA_COORDS[p.city];
-    const [dLat, dLng] = jitter();
+    const [dLat, dLng] = jitter(name);
     return { latitude: coord[0] + dLat, longitude: coord[1] + dLng };
   }
   return null;
