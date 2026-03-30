@@ -367,6 +367,28 @@ export const RESTAURANT_COORDS = {
   'Kapo Choryumon': [35.66950, 139.76354],
   'Kajitsuen Liber Tokyo': [35.68224, 139.76798],
   'YAUMAY': [35.67771, 139.76174],
+
+  // === Ginza batch C ===
+  'Sumiyaki Unafuji Tokyo': [35.67942, 139.76894],
+  'The Bvlgari Bar': [35.67914, 139.76918],
+  'Tokyo En': [35.67031, 139.76552],
+  'BAR Hoshi': [35.67136, 139.76112],
+  'Setsugekka Ginza': [35.67159, 139.76201],
+  "Pont d'Or Inno": [35.68722, 139.77417],
+  'Kongst': [35.68461, 139.78047],
+  'San Kame': [35.67104, 139.76109],
+  'Salamanger Do Izashi Wakisaka': [35.67065, 139.76035],
+  'bistrosimba': [35.67272, 139.77205],
+  'Four Seasons': [35.67227, 139.76435],
+  'STAR BAR GINZA': [35.67476, 139.76691],
+
+  // === Roppongi ===
+  'LA BOUTIQUE de Joel Robuchon Roppongi Hills': [35.66011, 139.72939],
+  'Fiorentina Pastry Boutique': [35.65964, 139.72837],
+  'MAISON LANDEMAINE Azabudai': [35.66086, 139.73837],
+  'YAKITORI Moe es': [35.66374, 139.73030],
+  'series': [35.66061, 139.73900],
+  'Kiraku Tei': [35.64697, 139.72770],
 };
 
 // Itinerary place coordinates (from Google Maps / search)
