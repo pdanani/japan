@@ -17,6 +17,7 @@ import {
   getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
 import { MAPBOX_TOKEN } from '../data/mapConfig';
+import { tabelogAll } from '../data/tabelogAll';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -57,7 +58,7 @@ export default function MapViewComponent() {
   const [activePin, setActivePin] = useState(0);
   const [selectedPin, setSelectedPin] = useState(null); // index into tabelogPins, or null
   const [carouselMode, setCarouselMode] = useState('itinerary'); // 'itinerary' | 'tabelog'
-  const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
+  const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false, allTabelog: false });
   const [showRoute, setShowRoute] = useState(true);
   const [mapReady, setMapReady] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -86,7 +87,8 @@ export default function MapViewComponent() {
 
   const cuisineTags = useMemo(() => {
     const cats = new Map();
-    tabelogList.forEach(r => {
+    const source = layers.allTabelog ? tabelogAll : tabelogList;
+    source.forEach(r => {
       (r.cuisine || '').split(/[,/]/).forEach(c => {
         const t = c.trim();
         if (t && t.length > 1) {
@@ -97,7 +99,7 @@ export default function MapViewComponent() {
       });
     });
     return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [tabelogList, japaneseOnly]);
+  }, [tabelogList, japaneseOnly, layers.allTabelog]);
 
   const tabelogPins = useMemo(() => {
     let filtered = tabelogList;
@@ -120,6 +122,23 @@ export default function MapViewComponent() {
     }).filter(Boolean);
   }, [savedList]);
 
+  // All 1200 Tabelog pins (filtered)
+  const allTabelogPins = useMemo(() => {
+    if (!layers.allTabelog) return [];
+    let filtered = tabelogAll;
+    if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
+    if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
+    if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
+    if (japaneseOnly) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });
+    return filtered
+      .filter(r => r.lat && r.lng)
+      .map((r, i) => ({
+        ...r,
+        coord: { latitude: r.lat, longitude: r.lng },
+        key: `all-${i}`,
+      }));
+  }, [layers.allTabelog, maxPrice, minRating, cuisineFilter, japaneseOnly]);
+
   const allVisiblePins = useMemo(() => {
     const pins = [];
     if (layers.itinerary) itineraryPins.forEach(p => pins.push({
@@ -134,8 +153,12 @@ export default function MapViewComponent() {
       ...p, kind: 'saves', title: p.name,
       subtitle: `${p.type}${p.area ? ' · ' + p.area : ''}`, color: '#2563eb',
     }));
+    if (layers.allTabelog) allTabelogPins.forEach(p => pins.push({
+      ...p, kind: 'tabelog', title: p.name,
+      subtitle: `${p.rating}★ · ${p.cuisine}`, color: '#f97316',
+    }));
     return pins;
-  }, [layers, itineraryPins, tabelogPins, savedPins]);
+  }, [layers, itineraryPins, tabelogPins, savedPins, allTabelogPins]);
 
   // Itinerary carousel pins
   const carouselPins = useMemo(() => {
@@ -426,11 +449,15 @@ export default function MapViewComponent() {
       <div style={{ position: 'absolute', top: 60, left: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
           { key: 'itinerary', label: 'Itinerary', color: '#b91c1c', icon: <IconRoute size={14} /> },
-          { key: 'tabelog', label: 'Tabelog', color: '#ea580c', icon: <IconStarFilled size={14} /> },
+          { key: 'tabelog', label: 'Nearby', color: '#ea580c', icon: <IconStarFilled size={14} /> },
+          { key: 'allTabelog', label: 'All 1200', color: '#f97316', icon: <IconStarFilled size={14} /> },
           { key: 'saves', label: 'Saves', color: '#2563eb', icon: <IconBookmark size={14} /> },
         ].map(({ key, label, color, icon }) => {
           const active = layers[key];
-          const count = key === 'itinerary' ? itineraryPins.length : key === 'tabelog' ? tabelogPins.length : savedPins.length;
+          const count = key === 'itinerary' ? itineraryPins.length
+            : key === 'tabelog' ? tabelogPins.length
+            : key === 'allTabelog' ? allTabelogPins.length
+            : savedPins.length;
           return (
             <UnstyledButton
               key={key}
@@ -468,8 +495,8 @@ export default function MapViewComponent() {
           <IconTimeline size={14} /> Trail
         </UnstyledButton>
 
-        {/* Filter button — only when Tabelog layer is active */}
-        {layers.tabelog && (
+        {/* Filter button — when any Tabelog layer is active */}
+        {(layers.tabelog || layers.allTabelog) && (
           <UnstyledButton
             onClick={() => setShowFilters(prev => !prev)}
             style={{
@@ -493,7 +520,7 @@ export default function MapViewComponent() {
         )}
 
         {/* Filter bottom sheet */}
-        {layers.tabelog && showFilters && (
+        {(layers.tabelog || layers.allTabelog) && showFilters && (
           <>
             {/* Backdrop */}
             <div
