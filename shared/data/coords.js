@@ -52,10 +52,21 @@ function jitter(name) {
   return [Math.cos(angle) * r, Math.sin(angle) * r];
 }
 
+import { RESTAURANT_COORDS, ITINERARY_COORDS } from './restaurantCoords.js';
+
 // Try to resolve coordinates for a schedule item
+// Priority: 1) real coords from lookup, 2) area coords with jitter fallback
 export function getScheduleCoord(item, dayLocation) {
   const activity = item.activity || '';
 
+  // Check real itinerary coords first
+  for (const [key, coord] of Object.entries(ITINERARY_COORDS)) {
+    if (activity.toLowerCase().includes(key.toLowerCase())) {
+      return { latitude: coord[0], longitude: coord[1] };
+    }
+  }
+
+  // Fallback to area coords with jitter
   for (const [key, coord] of Object.entries(AREA_COORDS)) {
     if (activity.toLowerCase().includes(key.toLowerCase())) {
       const [dLat, dLng] = jitter(activity);
@@ -73,7 +84,16 @@ export function getScheduleCoord(item, dayLocation) {
 }
 
 // Resolve coords for a tabelog restaurant
+// Priority: 1) lat/lng on the entry itself, 2) real coords lookup, 3) station jitter fallback
 export function getTabelogCoord(r) {
+  // Real coords attached by withCoords()
+  if (r.lat && r.lng) return { latitude: r.lat, longitude: r.lng };
+
+  // Lookup by name
+  const realCoord = RESTAURANT_COORDS[r.name];
+  if (realCoord) return { latitude: realCoord[0], longitude: realCoord[1] };
+
+  // Fallback to station jitter
   const name = r.name || '';
   if (r.station) {
     if (AREA_COORDS[r.station]) {

@@ -1,10 +1,20 @@
 // Tabelog Top 1200 restaurants matched to itinerary days by station proximity
-// Each entry: { rank, rating, name, cuisine, price, station, mapUrl }
+// Each entry: { rank, rating, name, cuisine, price, station, lat, lng, mapUrl }
+
+import { RESTAURANT_COORDS } from './restaurantCoords.js';
 
 const gmap = (q) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q + ' Tokyo Japan')}`;
 
+// Attach real coords to each entry from the lookup table
+function withCoords(entries) {
+  return entries.map(e => {
+    const coord = RESTAURANT_COORDS[e.name];
+    return coord ? { ...e, lat: coord[0], lng: coord[1] } : e;
+  });
+}
+
 export const nearbyFinds = {
-  1: [
+  1: withCoords([
     { rank: 73, rating: 3.84, name: 'Patisserie Satsuki', cuisine: 'Cake, Bread', price: '<¥999', station: 'Akasaka Mitsuke', mapUrl: gmap('Patisserie Satsuki Akasaka Mitsuke') },
     { rank: 166, rating: 3.79, name: 'SIROTAE', cuisine: 'Cake, Cafe, Kissa', price: '¥1,000–1,999', station: 'Akasaka Mitsuke', mapUrl: gmap('SIROTAE Akasaka Mitsuke') },
     { rank: 26, rating: 3.92, name: 'Elio Locanda Italiana', cuisine: 'Italian', price: '¥3,000–3,999 lunch', station: 'Hanzomon', mapUrl: gmap('Elio Locanda Italiana Hanzomon') },
@@ -27,9 +37,9 @@ export const nearbyFinds = {
     { rank: 305, rating: 3.75, name: 'Seiyo Oryouri Touyou Ken', cuisine: 'Yoshoku', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Akasaka Mitsuke', mapUrl: gmap('Touyou Ken yoshoku Akasaka Mitsuke') },
     { rank: 306, rating: 3.75, name: 'Yakiniku Horumon Kinju', cuisine: 'Yakiniku', price: '¥6,000–7,999', dinnerPrice: '¥6,000–7,999', station: 'Akasaka', mapUrl: gmap('Yakiniku Horumon Kinju Akasaka') },
     { rank: 290, rating: 3.75, name: 'Akasaka Sichuan Hanten', cuisine: 'Sichuan, Chinese', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Akasaka', mapUrl: gmap('Akasaka Sichuan Hanten') },
-  ],
+  ]),
 
-  2: [
+  2: withCoords([
     { rank: 2, rating: 4.23, name: 'Okashiya Ucchi', cuisine: 'Cake, Western sweets', price: '¥5,000–5,999', station: 'Kita Sando', mapUrl: gmap('Okashiya Ucchi Kita Sando') },
     { rank: 63, rating: 3.85, name: 'Tamawarai', cuisine: 'Soba', price: '¥2,000–2,999', station: 'Meiji Jingumae', mapUrl: gmap('Tamawarai soba Meiji Jingumae') },
     { rank: 70, rating: 3.85, name: 'BLOCK HOUSE Suiyou Curry', cuisine: 'Curry', price: '¥2,000–2,999', station: 'Meiji Jingumae', mapUrl: gmap('BLOCK HOUSE Suiyou Curry Meiji Jingumae') },
@@ -68,9 +78,9 @@ export const nearbyFinds = {
     { rank: 546, rating: 3.74, name: "L'Octave -Hayato KOBAYASHI-", cuisine: 'French', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Kita Sando', mapUrl: gmap("L'Octave Hayato Kobayashi Kita Sando") },
     { rank: 724, rating: 3.72, name: 'Bistrot Bar a vin Kodama', cuisine: 'Bistro, French', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Shibuya', mapUrl: gmap('Bistrot Kodama Shibuya') },
     { rank: 249, rating: 3.76, name: 'Peruvian Bepoca', cuisine: 'Peruvian, Latin American', price: '¥8,000–9,999', dinnerPrice: '¥8,000–9,999', station: 'Meiji Jingumae', mapUrl: gmap('Peruvian Bepoca Harajuku') },
-  ],
+  ]),
 
-  3: [
+  3: withCoords([
     { rank: 24, rating: 3.93, name: 'Sichuan Hashoku', cuisine: 'Sichuan', price: '¥5,000–5,999 lunch', station: 'Asakusa', mapUrl: gmap('Sichuan Hashoku Asakusa') },
     { rank: 34, rating: 3.90, name: 'Motenashi Kuroki', cuisine: 'Ramen', price: '¥1,000–1,999', station: 'Asakusabashi', mapUrl: gmap('Motenashi Kuroki Asakusabashi') },
     { rank: 46, rating: 3.88, name: 'Tempura Shimomura', cuisine: 'Tempura', price: '¥5,000–5,999 lunch', station: 'Shin Okachimachi', mapUrl: gmap('Tempura Shimomura Shin Okachimachi') },
@@ -105,9 +115,9 @@ export const nearbyFinds = {
     { rank: 18, rating: 3.86, name: 'Iriya Kishimojin Monzen no Daya', cuisine: 'Unagi, Seafood', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Iriya', mapUrl: gmap('Iriya Kishimojin Monzen no Daya unagi') },
     { rank: 726, rating: 3.72, name: 'Steak Tomii', cuisine: 'Teppanyaki, Steak', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Asakusa', mapUrl: gmap('Steak Tomii Asakusa') },
     { rank: 286, rating: 3.75, name: 'LOOP TOKYO', cuisine: 'Creative', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Asakusa', mapUrl: gmap('LOOP TOKYO creative Asakusa') },
-  ],
+  ]),
 
-  4: [
+  4: withCoords([
     { rank: 9, rating: 4.04, name: 'Raa Menya Shima', cuisine: 'Ramen, Tsukemen', price: '¥1,000–1,999', station: 'Nishi Shinjuku Gochome', mapUrl: gmap('Raa Menya Shima Nishi Shinjuku') },
     { rank: 21, rating: 3.93, name: 'Katsu Pulipo', cuisine: 'Tonkatsu', price: '¥4,000–4,999 lunch', station: 'Seibu Shinjuku', mapUrl: gmap('Katsu Pulipo Shinjuku') },
     { rank: 64, rating: 3.85, name: 'ASTERISQUE', cuisine: 'Cake', price: '<¥999', station: 'Yoyogi Uehara', mapUrl: gmap('ASTERISQUE patisserie Yoyogi Uehara') },
@@ -149,9 +159,9 @@ export const nearbyFinds = {
     { rank: 605, rating: 3.73, name: "CHEF'S", cuisine: 'Chinese', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Shinjuku Gyoemmae', mapUrl: gmap("CHEF'S Chinese Shinjuku") },
     { rank: 622, rating: 3.73, name: 'il Pregio', cuisine: 'Italian', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Yoyogi Uehara', mapUrl: gmap('il Pregio Italian Yoyogi Uehara') },
     { rank: 639, rating: 3.73, name: 'Saint FAUCON', cuisine: 'French, Game dishes', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Yoyogi Uehara', mapUrl: gmap('Saint FAUCON French Yoyogi Uehara') },
-  ],
+  ]),
 
-  5: [
+  5: withCoords([
     { rank: 15, rating: 3.96, name: 'GELATERIA ACQUOLINA', cuisine: 'Gelato', price: '<¥999', station: 'Yutenji', mapUrl: gmap('GELATERIA ACQUOLINA Yutenji') },
     { rank: 54, rating: 3.86, name: 'Ramen Break Beats', cuisine: 'Ramen', price: '¥1,000–1,999', station: 'Yutenji', mapUrl: gmap('Ramen Break Beats Yutenji') },
     { rank: 59, rating: 3.86, name: 'Laekker', cuisine: 'Bread', price: '<¥999', station: 'Daikanyama', mapUrl: gmap('Laekker bread Daikanyama') },
@@ -205,9 +215,9 @@ export const nearbyFinds = {
     { rank: 255, rating: 3.76, name: 'torisawa', cuisine: 'Yakitori, Izakaya', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Naka Meguro', mapUrl: gmap('torisawa yakitori Naka Meguro') },
     { rank: 283, rating: 3.75, name: 'Abbesses', cuisine: 'Bistro, French, Steak', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Ebisu', mapUrl: gmap('Abbesses French Ebisu') },
     { rank: 284, rating: 3.74, name: 'Kiraku Tei', cuisine: 'Yakiniku', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Ebisu', mapUrl: gmap('Kiraku Tei yakiniku Ebisu') },
-  ],
+  ]),
 
-  12: [
+  12: withCoords([
     { rank: 217, rating: 3.78, name: 'Mentokoro Ginzasa', cuisine: 'Ramen, Tsukemen', price: '¥1,000–1,999', station: 'Tsukijishijo', mapUrl: gmap('Mentokoro Ginzasa Tsukiji') },
     { rank: 252, rating: 3.78, name: 'Sea Gen', cuisine: 'Seafood bowl (kaisendon)', price: '¥2,000–2,999', station: 'Tsukijishijo', mapUrl: gmap('Sea Gen kaisendon Tsukiji') },
     { rank: 44, rating: 3.88, name: 'Tokyo Style Noodle Hotate Biyori', cuisine: 'Tsukemen, Ramen', price: '¥1,000–1,999', station: 'Akihabara', mapUrl: gmap('Tokyo Style Noodle Hotate Biyori Akihabara') },
@@ -224,9 +234,9 @@ export const nearbyFinds = {
     { rank: 560, rating: 3.72, name: 'Karashibi Miso Ramen Kikanbo', cuisine: 'Ramen', price: '¥1,000–1,999', station: 'Kanda', mapUrl: gmap('Kikanbo miso ramen Kanda') },
     { rank: 811, rating: 3.70, name: 'Chiechan Ramen', cuisine: 'Ramen, Tsukemen', price: '<¥999', station: 'Kanda', mapUrl: gmap('Chiechan Ramen Kanda') },
     { rank: 848, rating: 3.68, name: 'Spice Ramen Manriki Akihabara', cuisine: 'Ramen', price: '<¥999', station: 'Akihabara', mapUrl: gmap('Spice Ramen Manriki Akihabara') },
-  ],
+  ]),
 
-  13: [
+  13: withCoords([
     { rank: 18, rating: 3.94, name: 'Ginza Hachigo', cuisine: 'Ramen', price: '¥1,000–1,999', station: 'Shintomicho', mapUrl: gmap('Ginza Hachigo ramen') },
     { rank: 33, rating: 3.91, name: 'Yaesu Unagi Hashimoto', cuisine: 'Eel', price: '¥5,000–5,999 lunch', station: 'Nihombashi', mapUrl: gmap('Yaesu Unagi Hashimoto Nihombashi') },
     { rank: 43, rating: 3.88, name: 'Frederic Cassel Ginza Mitsukoshi', cuisine: 'Cake, Sweets', price: '¥2,000–2,999', station: 'Ginza', mapUrl: gmap('Frederic Cassel Ginza Mitsukoshi') },
@@ -296,9 +306,9 @@ export const nearbyFinds = {
     { rank: 243, rating: 3.77, name: 'bistrosimba', cuisine: 'Bistro, French', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Shintomicho', mapUrl: gmap('bistrosimba French Shintomicho Ginza') },
     { rank: 245, rating: 3.77, name: 'Four Seasons', cuisine: 'Bar', price: '¥6,000–7,999', dinnerPrice: '¥6,000–7,999', station: 'Ginza', mapUrl: gmap('Four Seasons bar Ginza') },
     { rank: 257, rating: 3.76, name: 'STAR BAR GINZA', cuisine: 'Bar, Kakigori', price: '¥6,000–7,999', dinnerPrice: '¥6,000–7,999', station: 'Ginza Itchome', mapUrl: gmap('STAR BAR GINZA') },
-  ],
+  ]),
 
-  14: [
+  14: withCoords([
     // Shopping day - Akasaka + flexible. Include nearby Roppongi/Akasaka finds
     { rank: 106, rating: 3.82, name: 'Chinese Hanten Roppongi', cuisine: 'Chinese', price: '¥3,000–3,999 lunch', station: 'Roppongi', mapUrl: gmap('China Hanten Roppongi') },
     { rank: 181, rating: 3.79, name: 'Toshi Yoroizuka Mid Town', cuisine: 'Cake, Sweets', price: '¥1,000–1,999', station: 'Roppongi', mapUrl: gmap('Toshi Yoroizuka Tokyo Midtown') },
@@ -314,5 +324,5 @@ export const nearbyFinds = {
     { rank: 679, rating: 3.72, name: 'OGGI DAL-MATTO', cuisine: 'Italian, Innovative', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Roppongi', mapUrl: gmap('OGGI DAL-MATTO Italian Roppongi') },
     { rank: 259, rating: 3.76, name: 'Tori Sawa Roppongi', cuisine: 'Yakitori', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Roppongi', mapUrl: gmap('Tori Sawa yakitori Roppongi') },
     { rank: 282, rating: 3.75, name: 'La Brianza', cuisine: 'Italian, Pasta, Meat', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Roppongi', mapUrl: gmap('La Brianza Italian Roppongi') },
-  ],
+  ]),
 };
