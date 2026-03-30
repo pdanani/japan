@@ -18,6 +18,7 @@ import Badge from '../components/Badge';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
+import { tabelogAll } from '../data/tabelogAll';
 import {
   getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
@@ -36,7 +37,8 @@ const TYPE_CONFIG = {
 
 const LAYER_CONFIG = {
   itinerary: { color: colors.primary, icon: 'navigate-circle', label: 'Itinerary' },
-  tabelog: { color: '#ea580c', icon: 'star', label: 'Tabelog' },
+  tabelog: { color: '#ea580c', icon: 'star', label: 'Nearby' },
+  allTabelog: { color: '#f97316', icon: 'star', label: 'All 1200' },
   saves: { color: '#2563eb', icon: 'bookmark', label: 'Saves' },
 };
 
@@ -69,7 +71,7 @@ export default function MapScreen() {
   const [activePin, setActivePin] = useState(0);
   const [carouselMode, setCarouselMode] = useState('itinerary'); // 'itinerary' | 'tabelog'
   const [tabelogIdx, setTabelogIdx] = useState(0);
-  const [layers, setLayers] = useState({ itinerary: true, tabelog: false, saves: false });
+  const [layers, setLayers] = useState({ itinerary: true, tabelog: false, allTabelog: false, saves: false });
   const [showRoute, setShowRoute] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [maxPrice, setMaxPrice] = useState(15000);
@@ -168,6 +170,19 @@ export default function MapScreen() {
       .filter(Boolean);
   }, [savedList]);
 
+  // All 1200 Tabelog pins (filtered)
+  const allTabelogPins = useMemo(() => {
+    if (!layers.allTabelog) return [];
+    let filtered = tabelogAll;
+    if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
+    if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
+    if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
+    if (japaneseOnly) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });
+    return filtered
+      .filter(r => r.lat && r.lng)
+      .map((r, i) => ({ ...r, coord: { latitude: r.lat, longitude: r.lng } }));
+  }, [layers.allTabelog, maxPrice, minRating, cuisineFilter, japaneseOnly]);
+
   // All visible pins for map display (markers)
   const allVisiblePins = useMemo(() => {
     const pins = [];
@@ -208,8 +223,19 @@ export default function MapScreen() {
         mapUrl: p.mapUrl,
       }));
     }
+    if (layers.allTabelog) {
+      allTabelogPins.forEach((p, i) => pins.push({
+        key: `all-${i}`,
+        kind: 'tabelog',
+        title: p.name,
+        subtitle: `${p.rating}★ · ${p.cuisine}`,
+        color: '#f97316',
+        icon: 'star',
+        coord: p.coord,
+      }));
+    }
     return pins;
-  }, [layers, itineraryPins, tabelogPins, savedPins]);
+  }, [layers, itineraryPins, tabelogPins, savedPins, allTabelogPins]);
 
   // Carousel only for itinerary pins
   const carouselPins = useMemo(() => {
@@ -391,6 +417,25 @@ export default function MapScreen() {
             </Marker>
           );
         })}
+
+        {/* All 1200 Tabelog pins */}
+        {layers.allTabelog && allTabelogPins.map((pin, i) => {
+          const isActive = carouselPins[activePin]?.key === `all-${i}`;
+          return (
+            <Marker
+              key={`all-${i}`}
+              coordinate={pin.coord}
+              onPress={() => onMarkerPress(`all-${i}`)}
+            >
+              <View style={[
+                styles.markerSmall, { backgroundColor: '#f97316' },
+                isActive && styles.markerSmallActive,
+              ]}>
+                <Ionicons name="star" size={10} color="#fff" />
+              </View>
+            </Marker>
+          );
+        })}
       </MapView>
 
       {/* Day selector overlay */}
@@ -425,6 +470,7 @@ export default function MapScreen() {
           const active = layers[key];
           const count = key === 'itinerary' ? itineraryPins.length
             : key === 'tabelog' ? tabelogPins.length
+            : key === 'allTabelog' ? allTabelogPins.length
             : savedPins.length;
           return (
             <TouchableOpacity
@@ -454,8 +500,8 @@ export default function MapScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Filter button — only when Tabelog layer is active */}
-        {layers.tabelog && (
+        {/* Filter button — when any Tabelog layer is active */}
+        {(layers.tabelog || layers.allTabelog) && (
           <TouchableOpacity
             onPress={() => setShowFilters(prev => !prev)}
             style={[
@@ -479,7 +525,7 @@ export default function MapScreen() {
       </View>
 
       {/* Filter bottom sheet */}
-      {layers.tabelog && showFilters && (
+      {(layers.tabelog || layers.allTabelog) && showFilters && (
         <>
           {/* Backdrop */}
           <TouchableOpacity

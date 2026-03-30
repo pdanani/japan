@@ -1,0 +1,1 @@
+../../../shared/data/tabelogPages36to60.js
