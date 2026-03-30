@@ -478,4 +478,7 @@ export const ITINERARY_COORDS = {
   'BEAMS JAPAN': [35.6894, 139.7036],
   'Don Quijote Shibuya': [35.6604, 139.6978],
   'Ginza Six': [35.6696, 139.7638],
+  'OMO3': [35.6760, 139.7359],
+  'Kitamura Kamera': [35.6893, 139.6975],
+  'Flight home': [35.5533, 139.7811],
 };
