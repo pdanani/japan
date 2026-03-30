@@ -325,6 +325,48 @@ export const RESTAURANT_COORDS = {
   'Tori Shige': [35.68798, 139.69886],
   'il Pregio': [35.66894, 139.68255],
   'Saint FAUCON': [35.66999, 139.68138],
+
+  // === Daikanyama extra ===
+  'Patisserie la glycine': [35.65060, 139.69106],
+  'Oyadori Chuka Soba Ayagawa': [35.64658, 139.71367],
+  'Patisserie SOURIRE': [35.63471, 139.68660],
+  'sel sal sale': [35.64870, 139.70698],
+  'have more curry': [35.65341, 139.70477],
+  'Kitchen Pan Chi': [35.64280, 139.69914],
+  'ICARO': [35.64194, 139.69690],
+  'Mishuku Toraji': [35.63686, 139.69116],
+  'Tori Go': [35.64580, 139.69605],
+  'RODEO': [35.64076, 139.70206],
+  'torisawa': [35.64483, 139.70023],
+
+  // === Ginza batch B ===
+  'DELHI Ginza': [35.67119, 139.76085],
+  'Chuka Ginza Tei': [35.66805, 139.76305],
+  'Oniyanma Ningyocho': [35.68601, 139.78278],
+  'Restaurant Katsura': [35.68659, 139.77530],
+  'PIZZA DA BABBO': [35.68589, 139.78455],
+  'TAKAHASHIYA Ginza': [35.67018, 139.76794],
+  'YOU': [35.66947, 139.76867],
+  'Kanmi Okame Yurakucho': [35.67418, 139.76339],
+  'Matsudo Tomita Menban': [35.67957, 139.76528],
+  'Jikaseimen Ito Ginza': [35.66930, 139.76490],
+  'FISH Marunouchi': [35.68407, 139.76671],
+  'Rose Bakery Marunouchi': [35.67898, 139.76229],
+  'American': [35.66979, 139.76874],
+
+  // === Ginza batch A ===
+  'The Peninsula Boutique & Cafe': [35.67473, 139.76069],
+  'La Maison du Chocolat Marunouchi': [35.67619, 139.76197],
+  'La Boutique de Joel Robuchon Marunouchi': [35.67838, 139.76258],
+  'China Hanten Kohaku Kyu': [35.68451, 139.76123],
+  'Menya Hyottoko Kotsukan': [35.67516, 139.76434],
+  'BURDIGALA TOKYO': [35.68123, 139.76702],
+  'Tokyo Chinese Ichirin': [35.66987, 139.77155],
+  'Japan Ramen Rin Tokyo': [35.68110, 139.76780],
+  'Spicy Curry Ginza Hangetsu': [35.67127, 139.76126],
+  'Kapo Choryumon': [35.66950, 139.76354],
+  'Kajitsuen Liber Tokyo': [35.68224, 139.76798],
+  'YAUMAY': [35.67771, 139.76174],
 };
 
 // Itinerary place coordinates (from Google Maps / search)
