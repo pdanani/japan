@@ -470,4 +470,12 @@ export const ITINERARY_COORDS = {
   "CHOCOLATIER PALET D'OR": [35.6809, 139.7663],
   'Yaesu Unagi Hashimoto': [35.6802, 139.7710],
   'Nihonbashi Nagato': [35.6810, 139.7717],
+  'Kamawanu': [35.6500, 139.7008],
+  'Yakumo': [35.6501, 139.6869],
+  'Sea Gen': [35.6654, 139.7709],
+  'Indigo dye': [34.9973, 135.7190],
+  'roketsu': [34.9973, 135.7190],
+  'BEAMS JAPAN': [35.6894, 139.7036],
+  'Don Quijote Shibuya': [35.6604, 139.6978],
+  'Ginza Six': [35.6696, 139.7638],
 };
