@@ -397,6 +397,14 @@ export const RESTAURANT_COORDS = {
   'Ethiopia Curry Akihabara': [35.69843, 139.77220],
   'Sanmalo Tokyo': [35.69106, 139.76821],
   'Hongoku Tei': [35.68867, 139.77098],
+
+  // === Asakusa extra ===
+  'HARU': [35.71966, 139.78341],
+  'Ramen Tenjinshita Daiki': [35.70256, 139.77876],
+  'Gracia': [35.69975, 139.78612],
+  'Asakusa Juroku': [35.71956, 139.79606],
+  'Iriya Kishimojin Monzen no Daya': [35.72030, 139.78309],
+  'Mentokoro Ginzasa': [35.66623, 139.76343],
 };
 
 // Itinerary place coordinates (from Google Maps / search)
