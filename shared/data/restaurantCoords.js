@@ -389,6 +389,14 @@ export const RESTAURANT_COORDS = {
   'YAKITORI Moe es': [35.66374, 139.73030],
   'series': [35.66061, 139.73900],
   'Kiraku Tei': [35.64697, 139.72770],
+
+  // === Kanda/Jimbocho extra ===
+  'Umatama Ya': [35.69197, 139.77142],
+  'French Toast Factory Akiba': [35.69867, 139.77475],
+  'Sumibiyaki Chuuka Soba Seafood': [35.69335, 139.77086],
+  'Ethiopia Curry Akihabara': [35.69843, 139.77220],
+  'Sanmalo Tokyo': [35.69106, 139.76821],
+  'Hongoku Tei': [35.68867, 139.77098],
 };
 
 // Itinerary place coordinates (from Google Maps / search)
