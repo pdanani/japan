@@ -302,6 +302,29 @@ export const RESTAURANT_COORDS = {
   'LOVAT': [35.64930, 139.71068],
   'Indian Curry Fujiya': [35.68613, 139.77838],
   'Nanban Ginen Tei': [35.67141, 139.76310],
+
+  // === Shibuya extra ===
+  'CENTRE THE BAKERY Aoyama': [35.66276, 139.70925],
+  'GONTRAN CHERRIER Aoyama': [35.66280, 139.70949],
+  'amam dacotan Omotesando': [35.66455, 139.71107],
+  'Nicolai Bergmann NOMU': [35.66305, 139.71279],
+  'LATURE': [35.66077, 139.70853],
+  'Yoroniku': [35.66026, 139.71757],
+  'Bistrot Bar a vin Kodama': [35.66081, 139.70561],
+  'Peruvian Bepoca': [35.67254, 139.71014],
+  'breadworks Omote Sando': [35.66303, 139.71239],
+
+  // === Shinjuku extra ===
+  'Spicy Curry House Hangetsu': [35.69785, 139.69793],
+  'menya seishin': [35.71042, 139.68574],
+  'Ramen MAIKAGURA': [35.64807, 139.61899],
+  'Shina Soba Sawada': [35.68861, 139.71276],
+  'Ramen Manrai': [35.69298, 139.69789],
+  'Ramen Afro Beats': [35.69002, 139.71110],
+  'kalala': [35.69173, 139.71262],
+  'Tori Shige': [35.68798, 139.69886],
+  'il Pregio': [35.66894, 139.68255],
+  'Saint FAUCON': [35.66999, 139.68138],
 };
 
 // Itinerary place coordinates (from Google Maps / search)
