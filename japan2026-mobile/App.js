@@ -14,9 +14,58 @@ import ActivitiesScreen from './src/screens/ActivitiesScreen';
 import GroupScreen from './src/screens/GroupScreen';
 import MapScreen from './src/screens/MapScreen';
 import NearbyRecsScreen from './src/screens/NearbyRecsScreen';
-import { SHEET_ID, initialFood, initialActivities, timeline } from './src/data/tripData';
+import { SHEET_ID, initialFood, initialActivities, timeline as initialTimeline } from './src/data/tripData';
 import { colors } from './src/theme';
 import { ThemeProvider, useTheme } from './src/ThemeContext';
+
+// Timeline CSV parser (grid format: days as columns, times as rows)
+function detectActivityType(text) {
+  const t = text.toLowerCase();
+  if (/flight|train|monorail|shinkansen|yamanote|ginza line|bus|taxi|station|→|->/.test(t)) return 'transport';
+  if (/group|everyone|all\b/.test(t)) return 'group';
+  if (/nap|rest|hotel|omo3|check.?in|check.?out|pack|sleep/.test(t)) return 'rest';
+  if (/coffee|ramen|sushi|tempura|bakery|lunch|dinner|breakfast|eat|food|restaurant|cafe|taiyaki|kaisendon|tonkatsu|katsu|eel|unana|udon|soba|gyoza|takoyaki|pancake|ice.?cream|sweet|dessert|snack|market|tsukiji/.test(t)) return 'food';
+  if (/shop|store|camera|don.?quij|loft|beams|tower.?records|dulton|bic.?camera|sugar|kamawanu|knives|kama.?asa|honke|souvenir|mall/.test(t)) return 'shopping';
+  if (/shrine|temple|park|garden|castle|museum|palace|gate|river|stroll|walk|sky.?view|godzilla|tower|bridge/.test(t)) return 'site';
+  if (/jazz|concert|bar|karaoke|round1|spocha|arcade|glass.?cut|workshop|dye|class|sumo|kimono|kiriko/.test(t)) return 'activity';
+  return 'activity';
+}
+
+function parseTimelineCSV(rows) {
+  if (!rows || rows.length < 5) return null;
+  const headerRow = rows[0], dateRow = rows[1], locationRow = rows[2], notesRow = rows[3];
+  const dayColumns = [];
+  for (let col = 1; col < headerRow.length; col++) {
+    const h = (headerRow[col] || '').trim();
+    const dayMatch = h.match(/Day\s+(\d+)/i);
+    if (dayMatch) dayColumns.push({ col, day: parseInt(dayMatch[1], 10) });
+    else if (/end/i.test(h)) dayColumns.push({ col, day: 15 });
+  }
+  if (dayColumns.length === 0) return null;
+  return dayColumns.map(({ col, day }) => {
+    const rawDate = (dateRow[col] || '').trim();
+    const dowMatch = rawDate.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i);
+    const dayOfWeek = dowMatch ? dowMatch[1] : '';
+    const date = rawDate.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s*/i, '').trim() || rawDate;
+    const location = (locationRow[col] || '').trim();
+    const notes = (notesRow[col] || '').trim();
+    const schedule = [];
+    for (let r = 4; r < rows.length; r++) {
+      const timeRaw = (rows[r][0] || '').trim();
+      const activity = (rows[r][col] || '').trim();
+      if (!activity || activity === ' ') continue;
+      let time = timeRaw;
+      if (/^\d{1,2}:\d{2}$/.test(time)) {
+        const hour = parseInt(time.split(':')[0], 10);
+        const suffix = hour >= 12 && hour < 24 ? 'PM' : 'AM';
+        const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        time = `${h12}:${time.split(':')[1]} ${suffix}`;
+      }
+      schedule.push({ time, activity, type: detectActivityType(activity), source: 'sheet' });
+    }
+    return { day, date, dayOfWeek, location, notes, schedule };
+  });
+}
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -32,6 +81,7 @@ const TAB_ICONS = {
 function App() {
   const [food, setFood] = useState(initialFood);
   const [activities, setActivities] = useState(initialActivities);
+  const [timelineData, setTimelineData] = useState(initialTimeline);
   const [syncing, setSyncing] = useState(false);
 
   const sync = useCallback(async () => {
@@ -40,6 +90,7 @@ function App() {
       const sheets = [
         { gidParam: 'gid=0', target: 'activities' },
         { gidParam: 'sheet=Food%20Menu', target: 'food' },
+        { gidParam: 'sheet=PB%20Draft%20Timeline', target: 'timeline', noHeader: true },
       ];
       for (const s of sheets) {
         try {
@@ -47,29 +98,35 @@ function App() {
           const res = await fetch(url);
           if (!res.ok) continue;
           const csv = await res.text();
-          const { data } = Papa.parse(csv, { header: true, skipEmptyLines: true });
-          if (!data?.length) continue;
-          if (s.target === 'food') {
-            setFood(data.filter(r => r.Details?.trim()).map(r => ({
-              name: (r.Name || '').trim(),
-              category: (r.Category || '').trim(),
-              details: (r.Details || '').trim(),
-              location: (r.Location || '').trim(),
-              neighborhood: (r.Neighborhood || '').trim(),
-              notes: (r['Notes, etc'] || '').trim(),
-              link: (r.Link || '').trim(),
-              interested: (r['Others Interested'] || '').trim(),
-            })));
+          if (s.target === 'timeline') {
+            const { data } = Papa.parse(csv, { header: false, skipEmptyLines: false });
+            const parsed = parseTimelineCSV(data);
+            if (parsed && parsed.length > 0) setTimelineData(parsed);
           } else {
-            setActivities(data.filter(r => r.Details?.trim()).map(r => ({
-              name: (r.Name || '').trim(),
-              category: (r.Category || '').trim(),
-              details: (r.Details || '').trim(),
-              location: (r.Location || '').trim(),
-              notes: (r['Notes, etc'] || '').trim(),
-              link: (r.Link || '').trim(),
-              interested: (r['Others Interested'] || '').trim(),
-            })));
+            const { data } = Papa.parse(csv, { header: true, skipEmptyLines: true });
+            if (!data?.length) continue;
+            if (s.target === 'food') {
+              setFood(data.filter(r => r.Details?.trim()).map(r => ({
+                name: (r.Name || '').trim(),
+                category: (r.Category || '').trim(),
+                details: (r.Details || '').trim(),
+                location: (r.Location || '').trim(),
+                neighborhood: (r.Neighborhood || '').trim(),
+                notes: (r['Notes, etc'] || '').trim(),
+                link: (r.Link || '').trim(),
+                interested: (r['Others Interested'] || '').trim(),
+              })));
+            } else {
+              setActivities(data.filter(r => r.Details?.trim()).map(r => ({
+                name: (r.Name || '').trim(),
+                category: (r.Category || '').trim(),
+                details: (r.Details || '').trim(),
+                location: (r.Location || '').trim(),
+                notes: (r['Notes, etc'] || '').trim(),
+                link: (r.Link || '').trim(),
+                interested: (r['Others Interested'] || '').trim(),
+              })));
+            }
           }
         } catch (e) { console.warn(e); }
       }
@@ -102,7 +159,9 @@ function App() {
           tabBarLabelStyle: styles.tabLabel,
         })}
       >
-        <Tab.Screen name="Timeline" component={TimelineScreen} />
+        <Tab.Screen name="Timeline">
+          {(props) => <TimelineScreen {...props} timeline={timelineData} />}
+        </Tab.Screen>
         <Tab.Screen name="Map" component={MapScreen} />
         <Tab.Screen name="Food">
           {() => <FoodScreen data={food} />}

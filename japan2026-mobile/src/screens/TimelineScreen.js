@@ -8,7 +8,7 @@ import { colors, badgeColor } from '../theme';
 import { useTheme } from '../ThemeContext';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
-import { timeline } from '../data/tripData';
+import { timeline as defaultTimeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 
@@ -31,7 +31,8 @@ const SOURCE_CONFIG = {
   ai: { icon: 'sparkles', color: 'grape', label: 'AI' },
 };
 
-export default function TimelineScreen() {
+export default function TimelineScreen({ timeline: timelineProp }) {
+  const timeline = timelineProp || defaultTimeline;
   const navigation = useNavigation();
   const { colors: tc, isDark, toggleDark } = useTheme();
   const [selected, setSelected] = useState(1);
