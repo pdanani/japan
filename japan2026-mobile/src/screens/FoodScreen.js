@@ -8,7 +8,7 @@ import Badge from '../components/Badge';
 import SearchBar from '../components/SearchBar';
 import FilterChip from '../components/FilterChip';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
-import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
+import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 
 const NON_JAPANESE = [
   'italian', 'french', 'indian', 'chinese', 'sichuan', 'korean',
@@ -82,7 +82,7 @@ export default function FoodScreen({ data }) {
 
   // === Tabelog logic ===
   const tabelogSource = useMemo(
-    () => (tabelogCity === 'Osaka' ? tabelogOsakaDinnerAll : tabelogTokyoAll),
+    () => (tabelogCity === 'Osaka' ? tabelogOsakaAll : tabelogTokyoAll),
     [tabelogCity],
   );
   const cuisineTags = useMemo(() => {

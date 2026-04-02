@@ -18,7 +18,7 @@ import {
 } from '../data/coords';
 import { MAPBOX_TOKEN } from '../data/mapConfig';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
-import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
+import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -82,7 +82,7 @@ export default function MapViewComponent() {
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
   const allTabelogSource = useMemo(
-    () => (allTabelogCity === 'Osaka' ? tabelogOsakaDinnerAll : tabelogTokyoAll),
+    () => (allTabelogCity === 'Osaka' ? tabelogOsakaAll : tabelogTokyoAll),
     [allTabelogCity],
   );
   const toggleLayer = (key) => setLayers(prev => ({ ...prev, [key]: !prev[key] }));

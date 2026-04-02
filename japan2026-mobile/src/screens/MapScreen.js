@@ -19,7 +19,7 @@ import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
-import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
+import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 import {
   getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
@@ -108,7 +108,7 @@ export default function MapScreen() {
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
   const allTabelogSource = useMemo(
-    () => (allTabelogCity === 'Osaka' ? tabelogOsakaDinnerAll : tabelogTokyoAll),
+    () => (allTabelogCity === 'Osaka' ? tabelogOsakaAll : tabelogTokyoAll),
     [allTabelogCity],
   );
 

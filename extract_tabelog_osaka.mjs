@@ -10,27 +10,63 @@ const LIST_CONCURRENCY = 4;
 const DETAIL_CONCURRENCY = 6;
 const CACHE_ROOT = '/tmp/tabelog-osaka-cache';
 const OUT_DIR = path.join(__dirname, 'shared', 'data');
-const LIST_URL =
-  'https://tabelog.com/en/rstLst/?PG=1&from_search=&voluntary_search=1&from_search_form=1&lid=&SrtT=rt&pcd=27&LstPrf=&Cat=&RdoCosTp=2&LstCos=0&LstCosT=8&vac_net=0&search_date=April+2%2C+2026+%28Thu%29+&svd=20260402&svt=1900&svps=2&LstRev=0&LstSitu=0&LstSmoking=0';
 
-const PAGE_GROUPS = [
+const MEAL_CONFIGS = [
   {
-    constName: 'osakaDinnerPages1to20',
-    fileName: 'tabelogOsakaDinnerPages1to20.js',
-    startPage: 1,
-    endPage: 20,
+    key: 'dinner',
+    label: 'Dinner',
+    listUrl:
+      'https://tabelog.com/en/rstLst/?PG=1&from_search=&voluntary_search=1&from_search_form=1&lid=&SrtT=rt&pcd=27&LstPrf=&Cat=&RdoCosTp=2&LstCos=0&LstCosT=8&vac_net=0&search_date=April+2%2C+2026+%28Thu%29+&svd=20260402&svt=1900&svps=2&LstRev=0&LstSitu=0&LstSmoking=0',
+    combinedExportName: 'tabelogOsakaDinnerAll',
+    combinedFileName: 'tabelogOsakaDinnerAll.js',
+    pageGroups: [
+      {
+        exportName: 'osakaDinnerPages1to20',
+        fileName: 'tabelogOsakaDinnerPages1to20.js',
+        startPage: 1,
+        endPage: 20,
+      },
+      {
+        exportName: 'osakaDinnerPages21to40',
+        fileName: 'tabelogOsakaDinnerPages21to40.js',
+        startPage: 21,
+        endPage: 40,
+      },
+      {
+        exportName: 'osakaDinnerPages41to60',
+        fileName: 'tabelogOsakaDinnerPages41to60.js',
+        startPage: 41,
+        endPage: 60,
+      },
+    ],
   },
   {
-    constName: 'osakaDinnerPages21to40',
-    fileName: 'tabelogOsakaDinnerPages21to40.js',
-    startPage: 21,
-    endPage: 40,
-  },
-  {
-    constName: 'osakaDinnerPages41to60',
-    fileName: 'tabelogOsakaDinnerPages41to60.js',
-    startPage: 41,
-    endPage: 60,
+    key: 'lunch',
+    label: 'Lunch',
+    listUrl:
+      'https://tabelog.com/en/rstLst/?PG=1&from_search=&voluntary_search=1&from_search_form=1&lid=&SrtT=rt&pcd=27&LstPrf=&Cat=&RdoCosTp=1&LstCos=0&LstCosT=6&vac_net=0&search_date=April+2%2C+2026+%28Thu%29+&svd=20260402&svt=1900&svps=2&LstRev=0&LstSitu=0&LstSmoking=0',
+    combinedExportName: 'tabelogOsakaLunchAll',
+    combinedFileName: 'tabelogOsakaLunchAll.js',
+    pageGroups: [
+      {
+        exportName: 'osakaLunchPages1to20',
+        fileName: 'tabelogOsakaLunchPages1to20.js',
+        startPage: 1,
+        endPage: 20,
+      },
+      {
+        exportName: 'osakaLunchPages21to40',
+        fileName: 'tabelogOsakaLunchPages21to40.js',
+        startPage: 21,
+        endPage: 40,
+      },
+      {
+        exportName: 'osakaLunchPages41to60',
+        fileName: 'tabelogOsakaLunchPages41to60.js',
+        startPage: 41,
+        endPage: 60,
+      },
+    ],
   },
 ];
 
@@ -63,6 +99,10 @@ function cleanText(value) {
     .trim();
 }
 
+function normalizePrice(value) {
+  return cleanText(value).replace(/^- /, '< ');
+}
+
 function escapeJs(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
@@ -80,8 +120,8 @@ function detailCacheKey(url) {
   return match ? match[1] : Buffer.from(url).toString('base64url');
 }
 
-function buildListPageUrl(page) {
-  const url = new URL(LIST_URL);
+function buildListPageUrl(baseUrl, page) {
+  const url = new URL(baseUrl);
   url.searchParams.set('PG', String(page));
   return url.toString();
 }
@@ -132,7 +172,7 @@ function parseAreaGenre(text) {
   };
 }
 
-function parseListPage(html, page) {
+function parseListPage(html, page, mealKey) {
   const segments = html
     .split('<div class="list-rst js-bookmark js-rst-cassette-wrap"')
     .slice(1)
@@ -159,16 +199,19 @@ function parseListPage(html, page) {
     }
 
     const { station, cuisine } = parseAreaGenre(cleanText(areaGenreMatch[1]));
+    const primaryPrice = mealKey === 'lunch' ? lunchPriceMatch?.[1] : dinnerPriceMatch?.[1];
+    const fallbackPrice = mealKey === 'lunch' ? dinnerPriceMatch?.[1] : lunchPriceMatch?.[1];
 
     restaurants.push({
       city: 'Osaka',
+      meal: mealKey,
       page,
       rank: Number(rankMatch[1]),
       name: cleanText(nameMatch[1]),
       rating: Number(ratingMatch[1]),
       cuisine,
       station,
-      price: cleanText(dinnerPriceMatch?.[1] ?? lunchPriceMatch?.[1] ?? ''),
+      price: normalizePrice(primaryPrice ?? fallbackPrice ?? ''),
       url: urlMatch[1],
     });
   }
@@ -208,8 +251,12 @@ async function mapLimit(items, limit, mapper) {
   return results;
 }
 
-function renderPageFile(constName, items) {
-  const lines = [`export const ${constName} = [`];
+function renderRecord(item) {
+  return `  {city:'Osaka',rank:${item.rank},name:'${escapeJs(item.name)}',rating:${formatNumber(item.rating)},cuisine:'${escapeJs(item.cuisine)}',station:'${escapeJs(item.station)}',price:'${escapeJs(item.price)}',lat:${formatCoord(item.lat)},lng:${formatCoord(item.lng)},url:'${escapeJs(item.url)}'},`;
+}
+
+function renderPageFile(exportName, items) {
+  const lines = [`export const ${exportName} = [`];
 
   let currentPage = 0;
   for (const item of items) {
@@ -217,83 +264,117 @@ function renderPageFile(constName, items) {
       currentPage = item.page;
       lines.push(`  // Page ${currentPage} (Ranks ${(currentPage - 1) * 20 + 1}-${currentPage * 20})`);
     }
-
-    lines.push(
-      `  {city:'Osaka',rank:${item.rank},name:'${escapeJs(item.name)}',rating:${formatNumber(item.rating)},cuisine:'${escapeJs(item.cuisine)}',station:'${escapeJs(item.station)}',price:'${escapeJs(item.price)}',lat:${formatCoord(item.lat)},lng:${formatCoord(item.lng)},url:'${escapeJs(item.url)}'},`,
-    );
+    lines.push(renderRecord(item));
   }
 
   lines.push('];', '');
   return lines.join('\n');
 }
 
-function renderCombinedFile() {
-  return `// Combined Tabelog Osaka dinner list (1200 restaurants)
-import { osakaDinnerPages1to20 } from './tabelogOsakaDinnerPages1to20.js';
-import { osakaDinnerPages21to40 } from './tabelogOsakaDinnerPages21to40.js';
-import { osakaDinnerPages41to60 } from './tabelogOsakaDinnerPages41to60.js';
+function renderCombinedMealFile(config) {
+  const imports = config.pageGroups
+    .map((group) => `import { ${group.exportName} } from './${group.fileName}';`)
+    .join('\n');
+  const spreads = config.pageGroups.map((group) => `  ...${group.exportName},`).join('\n');
 
-export const tabelogOsakaDinnerAll = [
-  ...osakaDinnerPages1to20,
-  ...osakaDinnerPages21to40,
-  ...osakaDinnerPages41to60,
+  return `// Combined Tabelog Osaka ${config.key} list (1200 restaurants)
+${imports}
+
+export const ${config.combinedExportName} = [
+${spreads}
 ].sort((a, b) => a.rank - b.rank);
 `;
 }
 
-async function main() {
-  const listCacheDir = path.join(CACHE_ROOT, 'list');
-  const detailCacheDir = path.join(CACHE_ROOT, 'detail');
+function renderDedupedCombinedFile() {
+  return `// Combined Tabelog Osaka restaurants — Lunch + Dinner lists, deduplicated
+import { tabelogOsakaLunchAll } from './tabelogOsakaLunchAll.js';
+import { tabelogOsakaDinnerAll } from './tabelogOsakaDinnerAll.js';
 
-  console.error(`Fetching ${TOTAL_PAGES} Osaka Tabelog list pages...`);
-  const listPages = Array.from({ length: TOTAL_PAGES }, (_, index) => index + 1);
+const all = [...tabelogOsakaLunchAll, ...tabelogOsakaDinnerAll];
+const seen = new Map();
 
-  const listResults = await mapLimit(listPages, LIST_CONCURRENCY, async (page) => {
-    const html = await fetchCached(listCacheDir, `page-${page}`, buildListPageUrl(page));
-    const restaurants = parseListPage(html, page);
-    console.error(`  Page ${page}: ${restaurants.length} restaurants`);
-    return restaurants;
-  });
-
-  const restaurants = listResults.flat().sort((a, b) => a.rank - b.rank);
-  if (restaurants.length !== 1200) {
-    console.error(`Expected 1200 restaurants, found ${restaurants.length}`);
+all.forEach((restaurant) => {
+  const key = (restaurant.url || restaurant.name).toLowerCase().trim();
+  const previous = seen.get(key);
+  if (
+    !previous ||
+    restaurant.rating > previous.rating ||
+    (restaurant.rating === previous.rating && restaurant.rank < previous.rank)
+  ) {
+    seen.set(key, restaurant);
   }
+});
 
+export const tabelogOsakaAll = [...seen.values()].sort((a, b) => b.rating - a.rating || a.rank - b.rank);
+`;
+}
+
+async function enrichWithCoords(restaurants, detailCacheDir) {
   console.error(`Fetching ${restaurants.length} detail pages for coordinates...`);
-  const restaurantsWithCoords = await mapLimit(restaurants, DETAIL_CONCURRENCY, async (restaurant, index) => {
+  return mapLimit(restaurants, DETAIL_CONCURRENCY, async (restaurant, index) => {
     const html = await fetchCached(detailCacheDir, detailCacheKey(restaurant.url), restaurant.url);
     const { lat, lng } = parseDetailPage(html, restaurant.url);
     if ((index + 1) % 50 === 0 || index === restaurants.length - 1) {
       console.error(`  Detail pages parsed: ${index + 1}/${restaurants.length}`);
     }
-    return {
-      ...restaurant,
-      lat,
-      lng,
-    };
+    return { ...restaurant, lat, lng };
+  });
+}
+
+async function scrapeMeal(config, listCacheDir, detailCacheDir) {
+  console.error(`Fetching ${TOTAL_PAGES} Osaka Tabelog ${config.label.toLowerCase()} pages...`);
+  const listPages = Array.from({ length: TOTAL_PAGES }, (_, index) => index + 1);
+
+  const listResults = await mapLimit(listPages, LIST_CONCURRENCY, async (page) => {
+    const html = await fetchCached(
+      listCacheDir,
+      `${config.key}-page-${page}`,
+      buildListPageUrl(config.listUrl, page),
+    );
+    const restaurants = parseListPage(html, page, config.key);
+    console.error(`  ${config.label} page ${page}: ${restaurants.length} restaurants`);
+    return restaurants;
   });
 
-  await mkdir(OUT_DIR, { recursive: true });
+  const restaurants = listResults.flat().sort((a, b) => a.rank - b.rank);
+  if (restaurants.length !== 1200) {
+    console.error(`Expected 1200 ${config.label.toLowerCase()} restaurants, found ${restaurants.length}`);
+  }
 
-  for (const group of PAGE_GROUPS) {
+  const restaurantsWithCoords = await enrichWithCoords(restaurants, detailCacheDir);
+
+  for (const group of config.pageGroups) {
     const items = restaurantsWithCoords.filter(
       (item) => item.page >= group.startPage && item.page <= group.endPage,
     );
-    const output = renderPageFile(group.constName, items);
     const filepath = path.join(OUT_DIR, group.fileName);
-    await writeFile(filepath, output, 'utf8');
+    await writeFile(filepath, renderPageFile(group.exportName, items), 'utf8');
     console.error(`Wrote ${items.length} restaurants to ${filepath}`);
   }
 
-  const combinedPath = path.join(OUT_DIR, 'tabelogOsakaDinnerAll.js');
-  await writeFile(combinedPath, renderCombinedFile(), 'utf8');
-  console.error(`Wrote combined file to ${combinedPath}`);
+  const combinedPath = path.join(OUT_DIR, config.combinedFileName);
+  await writeFile(combinedPath, renderCombinedMealFile(config), 'utf8');
+  console.error(`Wrote ${config.label.toLowerCase()} combined file to ${combinedPath}`);
 
-  console.error('Top 5 Osaka restaurants:');
+  console.error(`Top 5 Osaka ${config.label.toLowerCase()} restaurants:`);
   restaurantsWithCoords.slice(0, 5).forEach((item) => {
     console.error(`  #${item.rank} ${item.name} | ${item.rating} | ${item.station}`);
   });
+}
+
+async function main() {
+  const listCacheDir = path.join(CACHE_ROOT, 'list');
+  const detailCacheDir = path.join(CACHE_ROOT, 'detail');
+  await mkdir(OUT_DIR, { recursive: true });
+
+  for (const config of MEAL_CONFIGS) {
+    await scrapeMeal(config, listCacheDir, detailCacheDir);
+  }
+
+  const combinedPath = path.join(OUT_DIR, 'tabelogOsakaAll.js');
+  await writeFile(combinedPath, renderDedupedCombinedFile(), 'utf8');
+  console.error(`Wrote deduped combined file to ${combinedPath}`);
 }
 
 main().catch((error) => {

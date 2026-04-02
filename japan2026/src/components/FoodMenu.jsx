@@ -10,7 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { getCatColor, splitNames, filterTabelogList, extractCuisineTags } from '../utils';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
-import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
+import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 
 const INITIAL_SHOW = 50;
 
@@ -56,7 +56,7 @@ export default function FoodMenu({ data }) {
 
   // === Tabelog logic ===
   const tabelogSource = useMemo(
-    () => (tabelogCity === 'Osaka' ? tabelogOsakaDinnerAll : tabelogTokyoAll),
+    () => (tabelogCity === 'Osaka' ? tabelogOsakaAll : tabelogTokyoAll),
     [tabelogCity],
   );
   const cuisineTags = useMemo(
