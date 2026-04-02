@@ -18,7 +18,8 @@ import Badge from '../components/Badge';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
-import { tabelogAll } from '../data/tabelogAll';
+import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
+import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
 import {
   getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
@@ -38,7 +39,7 @@ const TYPE_CONFIG = {
 const LAYER_CONFIG = {
   itinerary: { color: colors.primary, icon: 'navigate-circle', label: 'Itinerary' },
   tabelog: { color: '#ea580c', icon: 'star', label: 'Nearby' },
-  allTabelog: { color: '#f97316', icon: 'star', label: 'All 1200' },
+  allTabelog: { color: '#f97316', icon: 'star', label: 'All Tabelog' },
   saves: { color: '#2563eb', icon: 'bookmark', label: 'Saves' },
 };
 
@@ -53,6 +54,12 @@ function parsePrice(p) {
   const m = p.match(/[\d,]+/);
   return m ? parseInt(m[0].replace(/,/g, ""), 10) : 0;
 }
+
+function inferTabelogCity(day) {
+  const haystack = `${day?.location || ''} ${day?.notes || ''}`.toLowerCase();
+  return haystack.includes('osaka') ? 'Osaka' : 'Tokyo';
+}
+
 function openDirections(lat, lng, label) {
   const url = Platform.select({
     ios: `maps:?daddr=${lat},${lng}&q=${encodeURIComponent(label)}`,
@@ -74,6 +81,7 @@ export default function MapScreen() {
   const [layers, setLayers] = useState({ itinerary: true, tabelog: false, allTabelog: false, saves: false });
   const [showRoute, setShowRoute] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [allTabelogCity, setAllTabelogCity] = useState('Tokyo');
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
@@ -99,10 +107,19 @@ export default function MapScreen() {
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
+  const allTabelogSource = useMemo(
+    () => (allTabelogCity === 'Osaka' ? tabelogOsakaDinnerAll : tabelogTokyoAll),
+    [allTabelogCity],
+  );
+
+  useEffect(() => {
+    setAllTabelogCity(inferTabelogCity(day));
+  }, [day]);
 
   const cuisineTags = useMemo(() => {
     const cats = new Map();
-    tabelogList.forEach(r => {
+    const source = layers.allTabelog ? allTabelogSource : tabelogList;
+    source.forEach(r => {
       (r.cuisine || '').split(/[,/]/).forEach(c => {
         const t = c.trim();
         if (t && t.length > 1) {
@@ -113,7 +130,7 @@ export default function MapScreen() {
       });
     });
     return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [tabelogList, japaneseOnly]);
+  }, [tabelogList, japaneseOnly, layers.allTabelog, allTabelogSource]);
 
   const toggleLayer = (key) => setLayers(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -173,7 +190,7 @@ export default function MapScreen() {
   // All 1200 Tabelog pins (filtered)
   const allTabelogPins = useMemo(() => {
     if (!layers.allTabelog) return [];
-    let filtered = tabelogAll;
+    let filtered = allTabelogSource;
     if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
     if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
@@ -181,7 +198,7 @@ export default function MapScreen() {
     return filtered
       .filter(r => r.lat && r.lng)
       .map((r, i) => ({ ...r, coord: { latitude: r.lat, longitude: r.lng } }));
-  }, [layers.allTabelog, maxPrice, minRating, cuisineFilter, japaneseOnly]);
+  }, [layers.allTabelog, allTabelogSource, maxPrice, minRating, cuisineFilter, japaneseOnly]);
 
   // All visible pins for map display (markers)
   const allVisiblePins = useMemo(() => {
@@ -548,6 +565,26 @@ export default function MapScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: Dimensions.get('window').height * 0.55 }}>
+              {layers.allTabelog && (
+                <>
+                  <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>CITY</Text>
+                  <View style={styles.sheetPillRow}>
+                    {['Tokyo', 'Osaka'].map((city) => (
+                      <TouchableOpacity
+                        key={city}
+                        onPress={() => setAllTabelogCity(city)}
+                        style={[styles.sheetPill, { backgroundColor: allTabelogCity === city ? '#ea580c' : tc.border }]}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.sheetPillText, { color: allTabelogCity === city ? '#fff' : tc.textSecondary }]}>
+                          {city}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
               {/* Price */}
               <View style={styles.sheetRow}>
                 <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>PRICE</Text>

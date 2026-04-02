@@ -17,7 +17,8 @@ import {
   getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
 import { MAPBOX_TOKEN } from '../data/mapConfig';
-import { tabelogAll } from '../data/tabelogAll';
+import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
+import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -32,6 +33,12 @@ function parsePrice(p) {
   const m = p.match(/[\d,]+/);
   return m ? parseInt(m[0].replace(/,/g, ""), 10) : 0;
 }
+
+function inferTabelogCity(day) {
+  const haystack = `${day?.location || ''} ${day?.notes || ''}`.toLowerCase();
+  return haystack.includes('osaka') ? 'Osaka' : 'Tokyo';
+}
+
 const TYPE_CONFIG = {
   transport: { color: '#7c3aed', label: 'Transport' },
   food: { color: '#ea580c', label: 'Food' },
@@ -62,6 +69,7 @@ export default function MapViewComponent() {
   const [showRoute, setShowRoute] = useState(true);
   const [mapReady, setMapReady] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [allTabelogCity, setAllTabelogCity] = useState('Tokyo');
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
@@ -73,7 +81,15 @@ export default function MapViewComponent() {
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
+  const allTabelogSource = useMemo(
+    () => (allTabelogCity === 'Osaka' ? tabelogOsakaDinnerAll : tabelogTokyoAll),
+    [allTabelogCity],
+  );
   const toggleLayer = (key) => setLayers(prev => ({ ...prev, [key]: !prev[key] }));
+
+  useEffect(() => {
+    setAllTabelogCity(inferTabelogCity(day));
+  }, [day]);
 
   const itineraryPins = useMemo(() => {
     if (!day) return [];
@@ -87,7 +103,7 @@ export default function MapViewComponent() {
 
   const cuisineTags = useMemo(() => {
     const cats = new Map();
-    const source = layers.allTabelog ? tabelogAll : tabelogList;
+    const source = layers.allTabelog ? allTabelogSource : tabelogList;
     source.forEach(r => {
       (r.cuisine || '').split(/[,/]/).forEach(c => {
         const t = c.trim();
@@ -99,7 +115,7 @@ export default function MapViewComponent() {
       });
     });
     return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [tabelogList, japaneseOnly, layers.allTabelog]);
+  }, [tabelogList, japaneseOnly, layers.allTabelog, allTabelogSource]);
 
   const tabelogPins = useMemo(() => {
     let filtered = tabelogList;
@@ -125,7 +141,7 @@ export default function MapViewComponent() {
   // All 1200 Tabelog pins (filtered)
   const allTabelogPins = useMemo(() => {
     if (!layers.allTabelog) return [];
-    let filtered = tabelogAll;
+    let filtered = allTabelogSource;
     if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
     if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
@@ -137,7 +153,7 @@ export default function MapViewComponent() {
         coord: { latitude: r.lat, longitude: r.lng },
         key: `all-${i}`,
       }));
-  }, [layers.allTabelog, maxPrice, minRating, cuisineFilter, japaneseOnly]);
+  }, [layers.allTabelog, allTabelogSource, maxPrice, minRating, cuisineFilter, japaneseOnly]);
 
   const allVisiblePins = useMemo(() => {
     const pins = [];
@@ -450,7 +466,7 @@ export default function MapViewComponent() {
         {[
           { key: 'itinerary', label: 'Itinerary', color: '#b91c1c', icon: <IconRoute size={14} /> },
           { key: 'tabelog', label: 'Nearby', color: '#ea580c', icon: <IconStarFilled size={14} /> },
-          { key: 'allTabelog', label: 'All 1200', color: '#f97316', icon: <IconStarFilled size={14} /> },
+          { key: 'allTabelog', label: 'All Tabelog', color: '#f97316', icon: <IconStarFilled size={14} /> },
           { key: 'saves', label: 'Saves', color: '#2563eb', icon: <IconBookmark size={14} /> },
         ].map(({ key, label, color, icon }) => {
           const active = layers[key];
@@ -551,6 +567,29 @@ export default function MapViewComponent() {
                   </UnstyledButton>
                 )}
               </div>
+
+              {/* Price */}
+              {layers.allTabelog && (
+                <>
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={8}>City</Text>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                    {['Tokyo', 'Osaka'].map((city) => (
+                      <UnstyledButton
+                        key={city}
+                        onClick={() => setAllTabelogCity(city)}
+                        style={{
+                          padding: '8px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                          background: allTabelogCity === city ? '#ea580c' : ov.border,
+                          color: allTabelogCity === city ? '#fff' : ov.textDim,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {city}
+                      </UnstyledButton>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {/* Price */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
