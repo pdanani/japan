@@ -10,6 +10,61 @@ const JAPANESE_NOODLE_TAGS = ['ramen', 'tsukemen', 'tantan-men'];
 const CHINESE_NOODLE_NOISE_TAGS = ['chinese', 'sichuan'];
 const JAPANESE_ONLY_CURATION_NOTE = 'Japanese-only cuisine tags should stay curated and compact.';
 
+const ALL_TAG_RULES = [
+  { match: /abura-soba|maze-soba/i, labels: ['Mazesoba'] },
+  { match: /ramen/i, labels: ['Ramen'] },
+  { match: /tsukemen/i, labels: ['Tsukemen'] },
+  { match: /tantan-men/i, labels: ['Tantan-men'] },
+  { match: /curry udon|udon-suki|\budon\b/i, labels: ['Udon'] },
+  { match: /soba/i, labels: ['Soba'] },
+  { match: /champon noodle soup|noodles|stir-fried noodles/i, labels: ['Noodles'] },
+  { match: /sushi/i, labels: ['Sushi'] },
+  { match: /unagi/i, labels: ['Unagi'] },
+  { match: /yakitori/i, labels: ['Yakitori'] },
+  { match: /kushiyaki/i, labels: ['Kushiyaki'] },
+  { match: /yakiniku|gyutan|grilled tripe|tripe/i, labels: ['Yakiniku'] },
+  { match: /izakaya/i, labels: ['Izakaya'] },
+  { match: /tempura/i, labels: ['Tempura'] },
+  { match: /tonkatsu/i, labels: ['Tonkatsu'] },
+  { match: /teppanyaki/i, labels: ['Teppanyaki'] },
+  { match: /okonomiyaki/i, labels: ['Okonomiyaki'] },
+  { match: /donburi|katsu-don|oyako-don/i, labels: ['Donburi'] },
+  { match: /nabe|sukiyaki|pork shabu shabu/i, labels: ['Hot Pot'] },
+  { match: /oden/i, labels: ['Oden'] },
+  { match: /omurice|yoshoku|hamburger steak/i, labels: ['Yoshoku'] },
+  { match: /cafe featuring japanese sweets|cafe japanese sweets/i, labels: ['Cafe', 'Sweets'] },
+  { match: /indian curry/i, labels: ['Indian', 'Curry'] },
+  { match: /curry|indian curry|soup curry/i, labels: ['Curry'] },
+  { match: /japanese sweets|japanese traditional sweets|japanese pudding|daifuku|dorayaki|obanyaki|taiyaki|senbei|kakigori|roasted sweet potato|baumkuchen/i, labels: ['Sweets'] },
+  { match: /ice cream|soft serve|gelato|cake|chocolate|donut|macaroon|western sweets|pancake/i, labels: ['Desserts'] },
+  { match: /bagel|bread|sandwich/i, labels: ['Bakery'] },
+  { match: /cafe|kissa|coffee|fruit parlour|juice/i, labels: ['Cafe'] },
+  { match: /baru|bar|beer hall|beer bar|wine bar|sake bar|shochu bar|oyster bar|dining bar|stand-up bar/i, labels: ['Bar'] },
+  { match: /bento/i, labels: ['Bento'] },
+  { match: /seafood/i, labels: ['Seafood'] },
+  { match: /beef dishes|meat dishes|meat|steak|hamburger/i, labels: ['Meat'] },
+  { match: /chicken dishes|kara-age/i, labels: ['Chicken'] },
+  { match: /pork dishes/i, labels: ['Pork'] },
+  { match: /deep-fried|croquette/i, labels: ['Fried'] },
+  { match: /japanese cuisine|\bjapanese\b/i, labels: ['Japanese'] },
+  { match: /chinese hot pot|\bchinese\b|sichuan|dumpling/i, labels: ['Chinese'] },
+  { match: /korean/i, labels: ['Korean'] },
+  { match: /italian|pasta|pizza/i, labels: ['Italian'] },
+  { match: /\bfrench\b|bistro/i, labels: ['French'] },
+  { match: /spanish|baru/i, labels: ['Spanish'] },
+  { match: /thai/i, labels: ['Thai'] },
+  { match: /vietnamese/i, labels: ['Vietnamese'] },
+  { match: /\bindian\b/i, labels: ['Indian'] },
+  { match: /nepalese/i, labels: ['Nepalese'] },
+  { match: /sri lankan/i, labels: ['Sri Lankan'] },
+  { match: /taiwanese/i, labels: ['Taiwanese'] },
+  { match: /singaporean/i, labels: ['Singaporean'] },
+  { match: /portuguese/i, labels: ['Portuguese'] },
+  { match: /american/i, labels: ['American'] },
+  { match: /german/i, labels: ['German'] },
+  { match: /asian|ethnic|european/i, labels: ['Asian'] },
+];
+
 const JAPANESE_ONLY_TAG_RULES = [
   { match: /abura-soba|maze-soba/i, label: 'Mazesoba' },
   { match: /ramen/i, label: 'Ramen' },
@@ -125,9 +180,9 @@ function dedupeCuisineTags(tags) {
   return [...unique.values()];
 }
 
-function toJapaneseOnlyCuisineTag(tag) {
-  for (const rule of JAPANESE_ONLY_TAG_RULES) {
-    if (rule.match.test(tag)) return rule.label;
+function matchCuisineRule(tag, rules) {
+  for (const rule of rules) {
+    if (rule.match.test(tag)) return rule.labels || [rule.label];
   }
   return null;
 }
@@ -146,15 +201,18 @@ export function normalizeCuisineTags(cuisine, options = {}) {
     cleaned = tags.filter(tag => !CHINESE_NOODLE_NOISE_TAGS.some(noise => tag.toLowerCase().includes(noise)));
   }
 
-  if (!japaneseOnly) return dedupeCuisineTags(cleaned);
+  if (!japaneseOnly) {
+    return dedupeCuisineTags(
+      cleaned.flatMap(tag => matchCuisineRule(tag, ALL_TAG_RULES) || []),
+    );
+  }
 
   // Japanese-only tags are intentionally curated so Osaka does not expose every raw
   // Tabelog fragment as a filter chip. Keep this compact when future sweeps are added.
   void JAPANESE_ONLY_CURATION_NOTE;
   return dedupeCuisineTags(
     cleaned
-      .map(tag => toJapaneseOnlyCuisineTag(tag))
-      .filter(Boolean),
+      .flatMap(tag => matchCuisineRule(tag, JAPANESE_ONLY_TAG_RULES) || []),
   );
 }
 
