@@ -11,7 +11,7 @@ import { useTheme } from '../ThemeContext';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import FilterChip from '../components/FilterChip';
-import { extractCuisineTags, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
+import { extractCuisineTags, groupCuisineTags, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import { AREA_COORDS } from '../data/coords';
@@ -200,6 +200,7 @@ export default function NearbyRecsScreen({ route }) {
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
+  const [cuisineLayout, setCuisineLayout] = useState('grouped');
 
   // Saves filters
   const [typeFilter, setTypeFilter] = useState([]);
@@ -208,6 +209,7 @@ export default function NearbyRecsScreen({ route }) {
   const cuisineTags = useMemo(() => {
     return extractCuisineTags(tabelogList, japaneseOnly);
   }, [tabelogList, japaneseOnly]);
+  const cuisineSections = useMemo(() => groupCuisineTags(cuisineTags), [cuisineTags]);
 
   // Extract place types from saved places
   const placeTypes = useMemo(() => {
@@ -430,19 +432,54 @@ export default function NearbyRecsScreen({ route }) {
 
             {/* Cuisine tags */}
             <Text style={[styles.filterLabel, { color: tc.textSecondary }]}>Cuisine</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
-              <View style={styles.chipRow}>
-                {cuisineTags.map(([key, label]) => (
-                  <FilterChip
-                    key={key}
-                    label={label}
-                    color="orange"
-                    selected={cuisineFilter.includes(key)}
-                    onPress={() => toggleCuisine(key)}
-                  />
+            <View style={styles.chipRow}>
+              {[
+                { label: 'Grouped', value: 'grouped' },
+                { label: 'Flat', value: 'flat' },
+              ].map(({ label, value }) => (
+                <FilterChip
+                  key={value}
+                  label={label}
+                  color="gray"
+                  selected={cuisineLayout === value}
+                  onPress={() => setCuisineLayout(value)}
+                />
+              ))}
+            </View>
+            {cuisineLayout === 'flat' ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                <View style={styles.chipRow}>
+                  {cuisineTags.map(([key, label]) => (
+                    <FilterChip
+                      key={key}
+                      label={label}
+                      color="orange"
+                      selected={cuisineFilter.includes(key)}
+                      onPress={() => toggleCuisine(key)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            ) : (
+              <View style={{ marginTop: 6 }}>
+                {cuisineSections.map((section) => (
+                  <View key={section.title} style={{ marginBottom: 10 }}>
+                    <Text style={[styles.filterLabel, { color: tc.textSecondary }]}>{section.title}</Text>
+                    <View style={styles.chipRow}>
+                      {section.items.map(([key, label]) => (
+                        <FilterChip
+                          key={key}
+                          label={label}
+                          color="orange"
+                          selected={cuisineFilter.includes(key)}
+                          onPress={() => toggleCuisine(key)}
+                        />
+                      ))}
+                    </View>
+                  </View>
                 ))}
               </View>
-            </ScrollView>
+            )}
 
           </Card>
 

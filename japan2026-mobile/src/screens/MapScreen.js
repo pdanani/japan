@@ -23,7 +23,7 @@ import { tabelogDinnerAll as tabelogTokyoDinnerAll } from '../data/tabelogDinner
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
 import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
-import { extractCuisineTags, getMealDatasets, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
+import { extractCuisineTags, getMealDatasets, groupCuisineTags, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
 import {
   getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
@@ -85,6 +85,7 @@ export default function MapScreen() {
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
+  const [cuisineLayout, setCuisineLayout] = useState('grouped');
 
   const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0 || (layers.allTabelog && mealFilter !== 'all');
   const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); setMealFilter('all'); };
@@ -131,6 +132,7 @@ export default function MapScreen() {
     const source = layers.allTabelog ? allTabelogSource : tabelogList;
     return extractCuisineTags(source, japaneseOnly);
   }, [tabelogList, japaneseOnly, layers.allTabelog, allTabelogSource]);
+  const cuisineSections = useMemo(() => groupCuisineTags(cuisineTags), [cuisineTags]);
 
   const toggleLayer = (key) => setLayers(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -672,20 +674,61 @@ export default function MapScreen() {
 
               {/* Cuisine tags */}
               <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>CUISINE</Text>
-              <View style={styles.sheetPillWrap}>
-                {cuisineTags.map(([key, label]) => (
+              <View style={styles.sheetPillRow}>
+                {[
+                  { label: 'Grouped', value: 'grouped' },
+                  { label: 'Flat', value: 'flat' },
+                ].map(({ label, value }) => (
                   <TouchableOpacity
-                    key={key}
-                    onPress={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
-                    style={[styles.sheetPill, { backgroundColor: cuisineFilter.includes(key) ? '#ea580c' : tc.border }]}
+                    key={value}
+                    onPress={() => setCuisineLayout(value)}
+                    style={[styles.sheetPill, { backgroundColor: cuisineLayout === value ? '#ea580c' : tc.border }]}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.sheetPillText, { color: cuisineFilter.includes(key) ? '#fff' : tc.textSecondary }]}>
+                    <Text style={[styles.sheetPillText, { color: cuisineLayout === value ? '#fff' : tc.textSecondary }]}>
                       {label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
+              {cuisineLayout === 'flat' ? (
+                <View style={styles.sheetPillWrap}>
+                  {cuisineTags.map(([key, label]) => (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                      style={[styles.sheetPill, { backgroundColor: cuisineFilter.includes(key) ? '#ea580c' : tc.border }]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.sheetPillText, { color: cuisineFilter.includes(key) ? '#fff' : tc.textSecondary }]}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {cuisineSections.map((section) => (
+                    <View key={section.title}>
+                      <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>{section.title}</Text>
+                      <View style={styles.sheetPillWrap}>
+                        {section.items.map(([key, label]) => (
+                          <TouchableOpacity
+                            key={key}
+                            onPress={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                            style={[styles.sheetPill, { backgroundColor: cuisineFilter.includes(key) ? '#ea580c' : tc.border }]}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.sheetPillText, { color: cuisineFilter.includes(key) ? '#fff' : tc.textSecondary }]}>
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
             </ScrollView>
 
             {/* Done button */}

@@ -12,7 +12,7 @@ import { tabelogDinnerAll as tabelogTokyoDinnerAll } from '../data/tabelogDinner
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
 import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
-import { extractCuisineTags, getMealDatasets, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
+import { extractCuisineTags, getMealDatasets, groupCuisineTags, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
 
 function parsePrice(p) {
   if (!p) return 0;
@@ -58,6 +58,7 @@ export default function FoodScreen({ data }) {
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
+  const [cuisineLayout, setCuisineLayout] = useState('grouped');
   const [showAll, setShowAll] = useState(false);
 
   // === Our Picks logic ===
@@ -98,6 +99,7 @@ export default function FoodScreen({ data }) {
   const cuisineTags = useMemo(() => {
     return extractCuisineTags(tabelogSource, japaneseOnly);
   }, [tabelogSource, japaneseOnly]);
+  const cuisineSections = useMemo(() => groupCuisineTags(cuisineTags), [cuisineTags]);
 
   const tabelogFiltered = useMemo(() => {
     let items = tabelogSource;
@@ -230,16 +232,51 @@ export default function FoodScreen({ data }) {
                   trackColor={{ false: tc.border, true: '#fdba74' }} thumbColor={japaneseOnly ? '#ea580c' : tc.card} />
               </View>
 
+              <View style={[styles.cityRow, { backgroundColor: tc.card, borderColor: tc.border }]}>
+                {[
+                  { label: 'Grouped', value: 'grouped' },
+                  { label: 'Flat', value: 'flat' },
+                ].map(({ label, value }) => (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => setCuisineLayout(value)}
+                    style={[styles.cityBtn, cuisineLayout === value && { backgroundColor: colors.primary }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.cityBtnText, { color: cuisineLayout === value ? '#fff' : tc.textMuted }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               {/* Cuisine tags */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                <View style={styles.chipRow}>
-                  {cuisineTags.slice(0, 30).map(([key, label]) => (
-                    <FilterChip key={key} label={label} color="orange"
-                      selected={cuisineFilter.includes(key)}
-                      onPress={() => { setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]); setShowAll(false); }} />
+              {cuisineLayout === 'flat' ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                  <View style={styles.chipRow}>
+                    {cuisineTags.map(([key, label]) => (
+                      <FilterChip key={key} label={label} color="orange"
+                        selected={cuisineFilter.includes(key)}
+                        onPress={() => { setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]); setShowAll(false); }} />
+                    ))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <View style={{ marginBottom: 12 }}>
+                  {cuisineSections.map((section) => (
+                    <View key={section.title} style={{ marginBottom: 10 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: tc.textSecondary, marginBottom: 6, textTransform: 'uppercase' }}>{section.title}</Text>
+                      <View style={styles.chipRow}>
+                        {section.items.map(([key, label]) => (
+                          <FilterChip key={key} label={label} color="orange"
+                            selected={cuisineFilter.includes(key)}
+                            onPress={() => { setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]); setShowAll(false); }} />
+                        ))}
+                      </View>
+                    </View>
                   ))}
                 </View>
-              </ScrollView>
+              )}
             </View>
           }
           renderItem={({ item: r, index: i }) => (

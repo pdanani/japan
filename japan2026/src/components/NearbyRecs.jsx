@@ -12,7 +12,7 @@ import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import { timeline } from '../data/tripData';
 import { AREA_COORDS } from '../data/coords';
-import { parsePrice, getCatColor, haversine, formatDist, extractCuisineTags, filterTabelogList } from '../utils';
+import { parsePrice, getCatColor, haversine, formatDist, extractCuisineTags, filterTabelogList, groupCuisineTags } from '../utils';
 
 const PLACE_TYPE_COLORS = { food: 'orange', shopping: 'pink', site: 'green', activity: 'yellow' };
 
@@ -38,6 +38,7 @@ export default function NearbyRecs({ dayNumber, onBack }) {
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
+  const [cuisineLayout, setCuisineLayout] = useState('grouped');
   const [typeFilter, setTypeFilter] = useState([]);
   const [areaFilter, setAreaFilter] = useState([]);
   const [userLoc, setUserLoc] = useState(null);
@@ -91,16 +92,13 @@ export default function NearbyRecs({ dayNumber, onBack }) {
   const cuisineTags = useMemo(() => {
     return extractCuisineTags(tabelogList, japaneseOnly);
   }, [tabelogList, japaneseOnly]);
+  const cuisineSections = useMemo(() => groupCuisineTags(cuisineTags), [cuisineTags]);
 
   const placeTypes = useMemo(() => [...new Set(savedList.map(p => p.type).filter(Boolean))].sort(), [savedList]);
   const savedAreas = useMemo(() => [...new Set(savedList.map(p => p.area || p.city || 'Other').filter(Boolean))].sort(), [savedList]);
 
   const filteredTabelog = useMemo(() => {
-    let items = tabelogList;
-    if (maxPrice < 15000) items = items.filter(r => parsePrice(r.price) <= maxPrice);
-    if (minRating !== 'all') { const min = parseFloat(minRating); items = items.filter(r => r.rating >= min); }
-    if (cuisineFilter.length > 0) items = items.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
-    return items;
+    return filterTabelogList(tabelogList, { maxPrice, minRating, cuisineFilter, japaneseOnly });
   }, [tabelogList, maxPrice, minRating, cuisineFilter, japaneseOnly]);
 
   const filteredSaves = useMemo(() => {
@@ -235,19 +233,53 @@ export default function NearbyRecs({ dayNumber, onBack }) {
                 styles={{ label: { fontSize: 12, color: '#9ca3af', paddingLeft: 6 } }}
               />
 
+              <SegmentedControl
+                value={cuisineLayout}
+                onChange={setCuisineLayout}
+                size="xs"
+                radius="xl"
+                color="orange"
+                data={[
+                  { label: 'Grouped', value: 'grouped' },
+                  { label: 'Flat', value: 'flat' },
+                ]}
+              />
+
               {/* Cuisine chips */}
-              <Group gap={4}>
-                {cuisineTags.map(([key, label]) => (
-                  <Badge
-                    key={key} size="xs" radius="xl" style={{ cursor: 'pointer' }}
-                    variant={cuisineFilter.includes(key) ? 'filled' : 'outline'}
-                    color={cuisineFilter.includes(key) ? 'orange' : 'gray'}
-                    onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
-                  >
-                    {label}
-                  </Badge>
-                ))}
-              </Group>
+              {cuisineLayout === 'flat' ? (
+                <Group gap={4}>
+                  {cuisineTags.map(([key, label]) => (
+                    <Badge
+                      key={key} size="xs" radius="xl" style={{ cursor: 'pointer' }}
+                      variant={cuisineFilter.includes(key) ? 'filled' : 'outline'}
+                      color={cuisineFilter.includes(key) ? 'orange' : 'gray'}
+                      onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                    >
+                      {label}
+                    </Badge>
+                  ))}
+                </Group>
+              ) : (
+                <Stack gap="xs">
+                  {cuisineSections.map((section) => (
+                    <div key={section.title}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={4}>{section.title}</Text>
+                      <Group gap={4}>
+                        {section.items.map(([key, label]) => (
+                          <Badge
+                            key={key} size="xs" radius="xl" style={{ cursor: 'pointer' }}
+                            variant={cuisineFilter.includes(key) ? 'filled' : 'outline'}
+                            color={cuisineFilter.includes(key) ? 'orange' : 'gray'}
+                            onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                          >
+                            {label}
+                          </Badge>
+                        ))}
+                      </Group>
+                    </div>
+                  ))}
+                </Stack>
+              )}
 
               {/* Distance slider — only when sorting by location */}
               {sortNearest && userLoc && (

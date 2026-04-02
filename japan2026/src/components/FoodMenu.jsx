@@ -8,7 +8,7 @@ import {
   IconSearch, IconMapPin, IconUser, IconExternalLink, IconFilter, IconX,
   IconStarFilled, IconToolsKitchen2,
 } from '@tabler/icons-react';
-import { getCatColor, splitNames, filterTabelogList, extractCuisineTags, getMealDatasets } from '../utils';
+import { getCatColor, splitNames, filterTabelogList, extractCuisineTags, getMealDatasets, groupCuisineTags } from '../utils';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
 import { tabelogDinnerAll as tabelogTokyoDinnerAll } from '../data/tabelogDinnerAll';
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
@@ -34,6 +34,7 @@ export default function FoodMenu({ data }) {
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
+  const [cuisineLayout, setCuisineLayout] = useState('grouped');
   const [stationFilter, setStationFilter] = useState('');
   const [showAll, setShowAll] = useState(false);
 
@@ -78,6 +79,7 @@ export default function FoodMenu({ data }) {
     () => extractCuisineTags(tabelogSource, japaneseOnly),
     [tabelogSource, japaneseOnly],
   );
+  const cuisineSections = useMemo(() => groupCuisineTags(cuisineTags), [cuisineTags]);
 
   const tabelogFiltered = useMemo(() => {
     let items = filterTabelogList(tabelogSource, { maxPrice, minRating, cuisineFilter, japaneseOnly });
@@ -223,26 +225,66 @@ export default function FoodMenu({ data }) {
                 styles={{ label: { fontSize: 12, color: 'var(--mantine-color-dimmed)', paddingLeft: 6 } }}
               />
 
-              <ScrollArea type="never">
-                <Group gap={4} wrap="nowrap">
-                  {cuisineTags.map(([key, label]) => (
-                    <Badge
-                      key={key}
-                      size="xs"
-                      variant={cuisineFilter.includes(key) ? 'filled' : 'outline'}
-                      color={cuisineFilter.includes(key) ? 'orange' : 'gray'}
-                      radius="xl"
-                      style={{ cursor: 'pointer', flexShrink: 0 }}
-                      onClick={() => {
-                        setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
-                        setShowAll(false);
-                      }}
-                    >
-                      {label}
-                    </Badge>
+              <SegmentedControl
+                value={cuisineLayout}
+                onChange={setCuisineLayout}
+                size="xs"
+                radius="xl"
+                color="orange"
+                data={[
+                  { label: 'Grouped', value: 'grouped' },
+                  { label: 'Flat', value: 'flat' },
+                ]}
+              />
+
+              {cuisineLayout === 'flat' ? (
+                <ScrollArea type="never">
+                  <Group gap={4} wrap="nowrap">
+                    {cuisineTags.map(([key, label]) => (
+                      <Badge
+                        key={key}
+                        size="xs"
+                        variant={cuisineFilter.includes(key) ? 'filled' : 'outline'}
+                        color={cuisineFilter.includes(key) ? 'orange' : 'gray'}
+                        radius="xl"
+                        style={{ cursor: 'pointer', flexShrink: 0 }}
+                        onClick={() => {
+                          setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
+                          setShowAll(false);
+                        }}
+                      >
+                        {label}
+                      </Badge>
+                    ))}
+                  </Group>
+                </ScrollArea>
+              ) : (
+                <Stack gap={8}>
+                  {cuisineSections.map((section) => (
+                    <div key={section.title}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={4}>{section.title}</Text>
+                      <Group gap={4}>
+                        {section.items.map(([key, label]) => (
+                          <Badge
+                            key={key}
+                            size="xs"
+                            variant={cuisineFilter.includes(key) ? 'filled' : 'outline'}
+                            color={cuisineFilter.includes(key) ? 'orange' : 'gray'}
+                            radius="xl"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                              setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
+                              setShowAll(false);
+                            }}
+                          >
+                            {label}
+                          </Badge>
+                        ))}
+                      </Group>
+                    </div>
                   ))}
-                </Group>
-              </ScrollArea>
+                </Stack>
+              )}
             </Stack>
           </Card>
 

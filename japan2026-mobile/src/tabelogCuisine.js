@@ -6,97 +6,59 @@ export const NON_JAPANESE = [
 
 const JAPANESE_NOODLE_TAGS = ['ramen', 'tsukemen', 'tantan-men'];
 const CHINESE_NOODLE_NOISE_TAGS = ['chinese', 'sichuan'];
-const ALL_TAG_RULES = [
-  { match: /abura-soba|maze-soba/i, labels: ['Mazesoba'] },
-  { match: /ramen/i, labels: ['Ramen'] },
-  { match: /tsukemen/i, labels: ['Tsukemen'] },
-  { match: /tantan-men/i, labels: ['Tantan-men'] },
-  { match: /curry udon|udon-suki|\budon\b/i, labels: ['Udon'] },
-  { match: /soba/i, labels: ['Soba'] },
-  { match: /champon noodle soup|noodles|stir-fried noodles/i, labels: ['Noodles'] },
-  { match: /sushi/i, labels: ['Sushi'] },
-  { match: /unagi/i, labels: ['Unagi'] },
-  { match: /yakitori/i, labels: ['Yakitori'] },
-  { match: /kushiyaki/i, labels: ['Kushiyaki'] },
-  { match: /yakiniku|gyutan|grilled tripe|tripe/i, labels: ['Yakiniku'] },
-  { match: /izakaya/i, labels: ['Izakaya'] },
-  { match: /tempura/i, labels: ['Tempura'] },
-  { match: /tonkatsu/i, labels: ['Tonkatsu'] },
-  { match: /teppanyaki/i, labels: ['Teppanyaki'] },
-  { match: /okonomiyaki/i, labels: ['Okonomiyaki'] },
-  { match: /donburi|katsu-don|oyako-don/i, labels: ['Donburi'] },
-  { match: /nabe|sukiyaki|pork shabu shabu/i, labels: ['Hot Pot'] },
-  { match: /oden/i, labels: ['Oden'] },
-  { match: /omurice|yoshoku|hamburger steak/i, labels: ['Yoshoku'] },
-  { match: /cafe featuring japanese sweets|cafe japanese sweets/i, labels: ['Cafe', 'Sweets'] },
-  { match: /indian curry/i, labels: ['Indian', 'Curry'] },
-  { match: /curry|indian curry|soup curry/i, labels: ['Curry'] },
-  { match: /japanese sweets|japanese traditional sweets|japanese pudding|daifuku|dorayaki|obanyaki|taiyaki|senbei|kakigori|roasted sweet potato|baumkuchen/i, labels: ['Sweets'] },
-  { match: /ice cream|soft serve|gelato|cake|chocolate|donut|macaroon|western sweets|pancake/i, labels: ['Desserts'] },
-  { match: /bagel|bread|sandwich/i, labels: ['Bakery'] },
-  { match: /cafe|kissa|coffee|fruit parlour|juice/i, labels: ['Cafe'] },
-  { match: /baru|bar|beer hall|beer bar|wine bar|sake bar|shochu bar|oyster bar|dining bar|stand-up bar/i, labels: ['Bar'] },
-  { match: /bento/i, labels: ['Bento'] },
-  { match: /seafood/i, labels: ['Seafood'] },
-  { match: /beef dishes|meat dishes|meat|steak|hamburger/i, labels: ['Meat'] },
-  { match: /chicken dishes|kara-age/i, labels: ['Chicken'] },
-  { match: /pork dishes/i, labels: ['Pork'] },
-  { match: /deep-fried|croquette/i, labels: ['Fried'] },
-  { match: /japanese cuisine|\bjapanese\b/i, labels: ['Japanese'] },
-  { match: /chinese hot pot|\bchinese\b|sichuan|dumpling/i, labels: ['Chinese'] },
-  { match: /korean/i, labels: ['Korean'] },
-  { match: /italian|pasta|pizza/i, labels: ['Italian'] },
-  { match: /\bfrench\b|bistro/i, labels: ['French'] },
-  { match: /spanish|baru/i, labels: ['Spanish'] },
-  { match: /thai/i, labels: ['Thai'] },
-  { match: /vietnamese/i, labels: ['Vietnamese'] },
-  { match: /\bindian\b/i, labels: ['Indian'] },
-  { match: /nepalese/i, labels: ['Nepalese'] },
-  { match: /sri lankan/i, labels: ['Sri Lankan'] },
-  { match: /taiwanese/i, labels: ['Taiwanese'] },
-  { match: /singaporean/i, labels: ['Singaporean'] },
-  { match: /portuguese/i, labels: ['Portuguese'] },
-  { match: /american/i, labels: ['American'] },
-  { match: /german/i, labels: ['German'] },
-  { match: /asian|ethnic|european/i, labels: ['Asian'] },
-];
-const JAPANESE_ONLY_TAG_RULES = [
-  { match: /abura-soba|maze-soba/i, label: 'Mazesoba' },
-  { match: /ramen/i, label: 'Ramen' },
-  { match: /tsukemen/i, label: 'Tsukemen' },
-  { match: /tantan-men/i, label: 'Tantan-men' },
-  { match: /curry udon|udon-suki|\budon\b/i, label: 'Udon' },
-  { match: /soba/i, label: 'Soba' },
-  { match: /sushi/i, label: 'Sushi' },
-  { match: /unagi/i, label: 'Unagi' },
-  { match: /anago/i, label: 'Anago' },
-  { match: /yakitori/i, label: 'Yakitori' },
-  { match: /kushiyaki/i, label: 'Kushiyaki' },
-  { match: /kushi-age/i, label: 'Kushiage' },
-  { match: /yakiniku|gyutan|jingisukan/i, label: 'Yakiniku' },
-  { match: /izakaya|japanese sake bar|japanese shochu/i, label: 'Izakaya' },
-  { match: /tempura/i, label: 'Tempura' },
-  { match: /tonkatsu/i, label: 'Tonkatsu' },
-  { match: /donburi|kais?en-don|katsu-don|oyako-don|ten-don/i, label: 'Donburi' },
-  { match: /teppanyaki/i, label: 'Teppanyaki' },
-  { match: /okonomiyaki/i, label: 'Okonomiyaki' },
-  { match: /takoyaki/i, label: 'Takoyaki' },
-  { match: /motsu-nabe|mizutaki|chanko-nabe|shabu shabu|sukiyaki|\bnabe\b/i, label: 'Hot Pot' },
-  { match: /oden/i, label: 'Oden' },
-  { match: /onigiri/i, label: 'Onigiri' },
-  { match: /kamameshi/i, label: 'Kamameshi' },
-  { match: /omurice|yoshoku|hamburger steak/i, label: 'Yoshoku' },
-  { match: /okinawa/i, label: 'Okinawa' },
-  { match: /kara-age|croquette|deep-fried foods/i, label: 'Fried' },
-  { match: /japanese traditional sweets|japanese pudding|daifuku|dorayaki|daigakuimo|taiyaki|obanyaki|kakigori|roasted sweet potato|baumkuchen|\bsweets\b/i, label: 'Sweets' },
-  { match: /cafe featuring japanese sweets|coffee stand|kissa|fruit parlour|juice stand|\bcafe\b/i, label: 'Cafe' },
-  { match: /bread|bagel|sandwich/i, label: 'Bakery' },
-  { match: /gelato|ice cream|soft serve|cake|chocolate|macaroon|crepe|galette|pancake/i, label: 'Desserts' },
-  { match: /bento/i, label: 'Bento' },
-  { match: /fugu/i, label: 'Fugu' },
-  { match: /suppon/i, label: 'Suppon' },
-  { match: /tofu/i, label: 'Tofu' },
-  { match: /seafood|crab|stand-up sushi/i, label: 'Seafood' },
+const CUISINE_ALIASES = [
+  { match: /^abura-soba$/i, label: 'Abura-soba' },
+  { match: /^maze-soba$/i, label: 'Maze-soba' },
+  { match: /^tsukemen(?:\s*\(.*\))?$/i, label: 'Tsukemen' },
+  { match: /^tantan-men(?:\s*\(.*\))?$/i, label: 'Tantan-men' },
+  { match: /^soba(?:\s*\(.*\))?$/i, label: 'Soba' },
+  { match: /^udon(?:\s*\(.*\))?$/i, label: 'Udon' },
+  { match: /^unagi(?:\s*\(.*\))?$/i, label: 'Unagi' },
+  { match: /^yakitori(?:\s*\(.*\))?$/i, label: 'Yakitori' },
+  { match: /^yakiniku(?:\s*\(.*\))?$/i, label: 'Yakiniku' },
+  { match: /^tonkatsu(?:\s*\(.*\))?$/i, label: 'Tonkatsu' },
+  { match: /^okonomiyaki(?:\s*\(.*\))?$/i, label: 'Okonomiyaki' },
+  { match: /^izakaya(?:\s*\(.*\))?$/i, label: 'Izakaya' },
+  { match: /^kissa(?:\s*\(.*\))?$/i, label: 'Kissa' },
+  { match: /^kakigori(?:\s*\(.*\))?$/i, label: 'Kakigori' },
+  { match: /^senbei(?:\s*\(.*\))?$/i, label: 'Senbei' },
+  { match: /^taiyaki$/i, label: 'Taiyaki' },
+  { match: /^takoyaki(?:\s*\(.*\))?$/i, label: 'Takoyaki' },
+  { match: /^onigiri(?:\s*\(.*\))?$/i, label: 'Onigiri' },
+  { match: /^anago(?:\s*\(.*\))?$/i, label: 'Anago' },
+  { match: /^fugu(?:\s*\(.*\))?$/i, label: 'Fugu' },
+  { match: /^suppon(?:\s*\(.*\))?$/i, label: 'Suppon' },
+  { match: /^kamameshi$/i, label: 'Kamameshi' },
+  { match: /^mizutaki$/i, label: 'Mizutaki' },
+  { match: /^kais?en-don(?:\s*\(.*\))?$/i, label: 'Kaisen-don' },
+  { match: /^katsu-don(?:\s*\(.*\))?$/i, label: 'Katsu-don' },
+  { match: /^oyako-don(?:\s*\(.*\))?$/i, label: 'Oyako-don' },
+  { match: /^ten-don(?:\s*\(.*\))?$/i, label: 'Ten-don' },
+  { match: /^omurice(?:\s*\(.*\))?$/i, label: 'Omurice' },
+  { match: /^yoshoku(?:\s*\(.*\))?$/i, label: 'Yoshoku' },
+  { match: /^japanese cuisine$/i, label: 'Japanese' },
+  { match: /^japanese sweets$/i, label: 'Japanese sweets' },
+  { match: /^japanese sweets cafe$/i, label: 'Japanese sweets cafe' },
+  { match: /^japanese traditional sweets$/i, label: 'Japanese traditional sweets' },
+  { match: /^japanese pudding$/i, label: 'Japanese pudding' },
+  { match: /^japanese coffee shop$/i, label: 'Kissa' },
+  { match: /^cafe japanese sweets$/i, label: 'Japanese sweets cafe' },
+  { match: /^cafe featuring japanese sweets$/i, label: 'Japanese sweets cafe' },
+  { match: /^indian curry$/i, labels: ['Indian', 'Curry'] },
+  { match: /^western sweets$/i, label: 'Western sweets' },
+  { match: /^sweets \(western(?: style)?\)$/i, label: 'Western sweets' },
+  { match: /^baru(?:\s*\(.*\))?$/i, label: 'Baru' },
+  { match: /^beer hall$/i, label: 'Beer hall' },
+  { match: /^beer bar$/i, label: 'Beer bar' },
+  { match: /^wine bar$/i, label: 'Wine bar' },
+  { match: /^sake bar$/i, label: 'Sake bar' },
+  { match: /^shochu bar$/i, label: 'Shochu bar' },
+  { match: /^japanese sake bar$/i, label: 'Japanese sake bar' },
+  { match: /^japanese shochu \(spirits\) bar$/i, label: 'Japanese shochu bar' },
+  { match: /^dining bar$/i, label: 'Dining bar' },
+  { match: /^stand-up bar$/i, label: 'Stand-up bar' },
+  { match: /^oyster bar$/i, label: 'Oyster Bar' },
+  { match: /^soft serve(?: ice cream)?$/i, label: 'Soft serve' },
 ];
 
 function splitCuisine(cuisine) {
@@ -116,6 +78,62 @@ export function getMealDatasets(allItems, dinnerItems) {
   };
 }
 
+const CUISINE_SECTION_ORDER = [
+  'Japanese',
+  'Noodles',
+  'Rice & Hot Pot',
+  'Grill & Meat',
+  'Seafood',
+  'Sweets & Bakery',
+  'Cafe & Drinks',
+  'Bars',
+  'International',
+  'Other',
+];
+
+function getCuisineSection(label) {
+  if ([
+    'Japanese', 'Izakaya', 'Yoshoku', 'Okonomiyaki', 'Takoyaki', 'Onigiri', 'Kamameshi',
+    'Anago', 'Fugu', 'Suppon', 'Mizutaki', 'Okinawa cuisine', 'Tofu dishes',
+    'Japanese sweets', 'Japanese sweets cafe', 'Japanese traditional sweets', 'Japanese pudding',
+  ].includes(label)) return 'Japanese';
+  if ([
+    'Ramen', 'Tsukemen', 'Tantan-men', 'Soba', 'Udon', 'Abura-soba', 'Maze-soba',
+    'Champon noodle soup', 'Noodles',
+  ].includes(label)) return 'Noodles';
+  if ([
+    'Donburi', 'Kaisen-don', 'Katsu-don', 'Oyako-don', 'Ten-don',
+    'Nabe', 'Shabu shabu', 'Sukiyaki', 'Motsu-nabe', 'Hot Pot',
+  ].includes(label)) return 'Rice & Hot Pot';
+  if ([
+    'Yakiniku', 'Yakitori', 'Kushiyaki', 'Steak', 'Hamburger', 'Beef dishes',
+    'Meat dishes', 'Horse meat dishes', 'Tripe', 'Grilled tripe', 'Gyutan',
+    'Chicken', 'Chicken dishes', 'Pork', 'Pork dishes', 'Tonkatsu', 'Teppanyaki',
+  ].includes(label)) return 'Grill & Meat';
+  if ([
+    'Sushi', 'Seafood', 'Unagi', 'Crab',
+  ].includes(label)) return 'Seafood';
+  if ([
+    'Cake', 'Gelato', 'Ice cream', 'Chocolate', 'Donut', 'Macaroon', 'Western sweets',
+    'Taiyaki', 'Kakigori', 'Senbei', 'Sweets', 'Desserts', 'Pancake',
+    'Bakery', 'Bread', 'Bagel', 'Sandwich', 'Crepe', 'Galette',
+  ].includes(label)) return 'Sweets & Bakery';
+  if ([
+    'Cafe', 'Kissa', 'Coffee shop', 'Tea', 'Fruit parlour', 'Juice', 'Cafeteria',
+  ].includes(label)) return 'Cafe & Drinks';
+  if ([
+    'Bar', 'Wine bar', 'Beer bar', 'Beer hall', 'Sake bar', 'Shochu bar',
+    'Japanese sake bar', 'Japanese shochu bar', 'Dining bar', 'Stand-up bar', 'Baru', 'Oyster Bar',
+  ].includes(label)) return 'Bars';
+  if ([
+    'Italian', 'French', 'Chinese', 'Korean', 'Thai', 'Indian', 'Mexican', 'Vietnamese',
+    'Indonesian', 'Singaporean', 'Taiwanese', 'Sri Lankan', 'Nepalese', 'Spanish',
+    'Portuguese', 'American', 'German', 'Asian', 'Ethnic', 'European', 'Bistro',
+    'Dim sum', 'Dim Sum', 'Dim sum & Yum cha',
+  ].includes(label)) return 'International';
+  return 'Other';
+}
+
 function dedupeCuisineTags(tags) {
   const unique = new Map();
   tags.forEach(tag => {
@@ -125,11 +143,39 @@ function dedupeCuisineTags(tags) {
   return [...unique.values()];
 }
 
-function matchCuisineRule(tag, rules) {
-  for (const rule of rules) {
-    if (rule.match.test(tag)) return rule.labels || [rule.label];
+function matchCuisineAlias(tag) {
+  for (const alias of CUISINE_ALIASES) {
+    if (alias.match.test(tag)) return alias.labels || [alias.label];
   }
-  return null;
+  const trimmed = tag.trim();
+  if (!trimmed) return [];
+  if (/^restaurants$/i.test(trimmed)) return [];
+  return [trimmed];
+}
+
+function shouldKeepJapaneseOnlyTag(tag) {
+  const key = tag.toLowerCase();
+  if (NON_JAPANESE.some(nj => key.includes(nj))) return false;
+  return !/^restaurants$/i.test(tag);
+}
+
+function collectNormalizedTags(tags) {
+  return dedupeCuisineTags(tags.flatMap(matchCuisineAlias));
+}
+
+function sortCuisineEntries(cats) {
+  return [...cats.entries()].sort((a, b) => {
+    if (b[1].count !== a[1].count) return b[1].count - a[1].count;
+    return a[1].label.localeCompare(b[1].label);
+  }).map(([key, value]) => [key, value.label]);
+}
+
+function addCuisineTag(cats, tag) {
+  const key = tag.toLowerCase();
+  if (!cats.has(key)) {
+    cats.set(key, { label: tag, count: 0 });
+  }
+  cats.get(key).count += 1;
 }
 
 export function normalizeCuisineTags(cuisine, options = {}) {
@@ -145,18 +191,9 @@ export function normalizeCuisineTags(cuisine, options = {}) {
     cleaned = tags.filter(tag => !CHINESE_NOODLE_NOISE_TAGS.some(noise => tag.toLowerCase().includes(noise)));
   }
 
-  if (!japaneseOnly) {
-    return dedupeCuisineTags(
-      cleaned.flatMap(tag => matchCuisineRule(tag, ALL_TAG_RULES) || []),
-    );
-  }
-
-  // Japanese-only tags are intentionally curated so Osaka does not expose every raw
-  // Tabelog fragment as a filter chip. Keep this compact when future sweeps are added.
-  return dedupeCuisineTags(
-    cleaned
-      .flatMap(tag => matchCuisineRule(tag, JAPANESE_ONLY_TAG_RULES) || []),
-  );
+  const normalized = collectNormalizedTags(cleaned);
+  if (!japaneseOnly) return normalized;
+  return normalized.filter(shouldKeepJapaneseOnlyTag);
 }
 
 function cuisineHaystack(cuisine, options = {}) {
@@ -171,13 +208,21 @@ export function matchesJapaneseOnly(cuisine) {
 export function extractCuisineTags(list, japaneseOnly) {
   const cats = new Map();
   list.forEach(r => {
-    normalizeCuisineTags(r.cuisine, { japaneseOnly }).forEach(tag => {
-      const key = tag.toLowerCase();
-      if (japaneseOnly && !matchesJapaneseOnly(tag)) return;
-      if (!cats.has(key)) cats.set(key, tag);
-    });
+    if (japaneseOnly && !matchesJapaneseOnly(r.cuisine)) return;
+    normalizeCuisineTags(r.cuisine, { japaneseOnly }).forEach(tag => addCuisineTag(cats, tag));
   });
-  return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  return sortCuisineEntries(cats);
+}
+
+export function groupCuisineTags(tagEntries) {
+  const grouped = new Map(CUISINE_SECTION_ORDER.map(section => [section, []]));
+  tagEntries.forEach(([key, label]) => {
+    const section = getCuisineSection(label);
+    grouped.get(section).push([key, label]);
+  });
+  return CUISINE_SECTION_ORDER
+    .map(section => ({ title: section, items: grouped.get(section) || [] }))
+    .filter(section => section.items.length > 0);
 }
 
 export function matchesCuisineFilter(cuisine, filters, japaneseOnly = false) {

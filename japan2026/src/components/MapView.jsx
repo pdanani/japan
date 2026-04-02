@@ -22,7 +22,7 @@ import { tabelogDinnerAll as tabelogTokyoDinnerAll } from '../data/tabelogDinner
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
 import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
-import { extractCuisineTags, getMealDatasets, matchesJapaneseOnly, normalizeCuisineTags } from '../utils';
+import { extractCuisineTags, getMealDatasets, groupCuisineTags, matchesJapaneseOnly, normalizeCuisineTags } from '../utils';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -73,6 +73,7 @@ export default function MapViewComponent() {
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
+  const [cuisineLayout, setCuisineLayout] = useState('grouped');
 
   const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0 || (layers.allTabelog && mealFilter !== 'all');
   const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); setMealFilter('all'); };
@@ -116,6 +117,7 @@ export default function MapViewComponent() {
     const source = layers.allTabelog ? allTabelogSource : tabelogList;
     return extractCuisineTags(source, japaneseOnly);
   }, [tabelogList, japaneseOnly, layers.allTabelog, allTabelogSource]);
+  const cuisineSections = useMemo(() => groupCuisineTags(cuisineTags), [cuisineTags]);
 
   const tabelogPins = useMemo(() => {
     let filtered = tabelogList;
@@ -677,22 +679,66 @@ export default function MapViewComponent() {
 
               {/* Cuisine tags — horizontal wrap */}
               <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={8}>Cuisine</Text>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                {cuisineTags.map(([key, label]) => (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                {[
+                  { label: 'Grouped', value: 'grouped' },
+                  { label: 'Flat', value: 'flat' },
+                ].map(({ label, value }) => (
                   <UnstyledButton
-                    key={key}
-                    onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                    key={value}
+                    onClick={() => setCuisineLayout(value)}
                     style={{
-                      padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 500,
-                      background: cuisineFilter.includes(key) ? '#ea580c' : ov.border,
-                      color: cuisineFilter.includes(key) ? '#fff' : ov.textDim,
-                      transition: 'all 0.15s',
+                      padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600,
+                      background: cuisineLayout === value ? '#ea580c' : ov.border,
+                      color: cuisineLayout === value ? '#fff' : ov.textDim,
                     }}
                   >
                     {label}
                   </UnstyledButton>
                 ))}
               </div>
+              {cuisineLayout === 'flat' ? (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {cuisineTags.map(([key, label]) => (
+                    <UnstyledButton
+                      key={key}
+                      onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                      style={{
+                        padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 500,
+                        background: cuisineFilter.includes(key) ? '#ea580c' : ov.border,
+                        color: cuisineFilter.includes(key) ? '#fff' : ov.textDim,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {label}
+                    </UnstyledButton>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginBottom: 12, display: 'grid', gap: 10 }}>
+                  {cuisineSections.map((section) => (
+                    <div key={section.title}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>{section.title}</Text>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {section.items.map(([key, label]) => (
+                          <UnstyledButton
+                            key={key}
+                            onClick={() => setCuisineFilter(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                            style={{
+                              padding: '6px 12px', borderRadius: 16, fontSize: 12, fontWeight: 500,
+                              background: cuisineFilter.includes(key) ? '#ea580c' : ov.border,
+                              color: cuisineFilter.includes(key) ? '#fff' : ov.textDim,
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {label}
+                          </UnstyledButton>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Done button */}
               <UnstyledButton
