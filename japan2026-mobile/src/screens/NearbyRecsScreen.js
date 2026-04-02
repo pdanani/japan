@@ -11,6 +11,7 @@ import { useTheme } from '../ThemeContext';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import FilterChip from '../components/FilterChip';
+import { extractCuisineTags, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import { AREA_COORDS } from '../data/coords';
@@ -63,12 +64,6 @@ const DISTANCE_PRESETS = [
   { label: '1mi', slider: 70 },
   { label: '2mi', slider: 90 },
   { label: 'Any', slider: 100 },
-];
-
-const NON_JAPANESE = [
-  'italian', 'french', 'indian', 'chinese', 'sichuan', 'korean',
-  'thai', 'vietnamese', 'spanish', 'american', 'peruvian',
-  'nepalese', 'sri lankan', 'bistro', 'pizza', 'pasta', 'steak',
 ];
 
 const PLACE_TYPE_COLORS = { food: 'orange', shopping: 'pink', site: 'green', activity: 'yellow' };
@@ -211,18 +206,7 @@ export default function NearbyRecsScreen({ route }) {
 
   // Extract cuisine tags from tabelog data
   const cuisineTags = useMemo(() => {
-    const cats = new Map();
-    tabelogList.forEach(r => {
-      (r.cuisine || '').split(/[,/]/).forEach(c => {
-        const t = c.trim();
-        if (t && t.length > 1) {
-          const key = t.toLowerCase();
-          if (japaneseOnly && NON_JAPANESE.some(nj => key.includes(nj))) return;
-          if (!cats.has(key)) cats.set(key, t);
-        }
-      });
-    });
-    return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    return extractCuisineTags(tabelogList, japaneseOnly);
   }, [tabelogList, japaneseOnly]);
 
   // Extract place types from saved places
@@ -247,16 +231,10 @@ export default function NearbyRecsScreen({ route }) {
       items = items.filter(r => r.rating >= min);
     }
     if (cuisineFilter.length > 0) {
-      items = items.filter(r => {
-        const cats = (r.cuisine || '').toLowerCase();
-        return cuisineFilter.some(c => cats.includes(c));
-      });
+      items = items.filter(r => matchesCuisineFilter(r.cuisine, cuisineFilter));
     }
     if (japaneseOnly) {
-      items = items.filter(r => {
-        const cats = (r.cuisine || '').toLowerCase();
-        return !NON_JAPANESE.some(nj => cats.includes(nj));
-      });
+      items = items.filter(r => matchesJapaneseOnly(r.cuisine));
     }
     return items;
   }, [tabelogList, maxPrice, minRating, cuisineFilter, japaneseOnly]);

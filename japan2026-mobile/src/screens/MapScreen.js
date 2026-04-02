@@ -20,6 +20,9 @@ import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
+import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
+import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
+import { extractCuisineTags, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
 import {
   getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
@@ -42,12 +45,6 @@ const LAYER_CONFIG = {
   allTabelog: { color: '#f97316', icon: 'star', label: 'All Tabelog' },
   saves: { color: '#2563eb', icon: 'bookmark', label: 'Saves' },
 };
-
-const NON_JAPANESE = [
-  'italian', 'french', 'indian', 'chinese', 'sichuan', 'korean',
-  'thai', 'vietnamese', 'spanish', 'american', 'peruvian',
-  'nepalese', 'sri lankan', 'bistro', 'pizza', 'pasta', 'steak',
-];
 
 function parsePrice(p) {
   if (!p) return 0;
@@ -82,13 +79,14 @@ export default function MapScreen() {
   const [showRoute, setShowRoute] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [allTabelogCity, setAllTabelogCity] = useState('Tokyo');
+  const [osakaMeal, setOsakaMeal] = useState('all');
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
 
-  const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0;
-  const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); };
+  const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0 || (layers.allTabelog && allTabelogCity === 'Osaka' && osakaMeal !== 'all');
+  const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); setOsakaMeal('all'); };
 
   if (Platform.OS === 'web') {
     return (
@@ -108,28 +106,23 @@ export default function MapScreen() {
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
   const allTabelogSource = useMemo(
-    () => (allTabelogCity === 'Osaka' ? tabelogOsakaAll : tabelogTokyoAll),
-    [allTabelogCity],
+    () => {
+      if (allTabelogCity !== 'Osaka') return tabelogTokyoAll;
+      if (osakaMeal === 'lunch') return tabelogOsakaLunchAll;
+      if (osakaMeal === 'dinner') return tabelogOsakaDinnerAll;
+      return tabelogOsakaAll;
+    },
+    [allTabelogCity, osakaMeal],
   );
 
   useEffect(() => {
     setAllTabelogCity(inferTabelogCity(day));
+    setOsakaMeal('all');
   }, [day]);
 
   const cuisineTags = useMemo(() => {
-    const cats = new Map();
     const source = layers.allTabelog ? allTabelogSource : tabelogList;
-    source.forEach(r => {
-      (r.cuisine || '').split(/[,/]/).forEach(c => {
-        const t = c.trim();
-        if (t && t.length > 1) {
-          const key = t.toLowerCase();
-          if (japaneseOnly && NON_JAPANESE.some(nj => key.includes(nj))) return;
-          if (!cats.has(key)) cats.set(key, t);
-        }
-      });
-    });
-    return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    return extractCuisineTags(source, japaneseOnly);
   }, [tabelogList, japaneseOnly, layers.allTabelog, allTabelogSource]);
 
   const toggleLayer = (key) => setLayers(prev => ({ ...prev, [key]: !prev[key] }));
@@ -165,8 +158,8 @@ export default function MapScreen() {
     let filtered = tabelogList;
     if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
-    if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
-    if (japaneseOnly) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });
+    if (cuisineFilter.length > 0) filtered = filtered.filter(r => matchesCuisineFilter(r.cuisine, cuisineFilter));
+    if (japaneseOnly) filtered = filtered.filter(r => matchesJapaneseOnly(r.cuisine));
     return filtered
       .map(r => {
         const coord = getTabelogCoord(r);
@@ -193,8 +186,8 @@ export default function MapScreen() {
     let filtered = allTabelogSource;
     if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
-    if (cuisineFilter.length > 0) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
-    if (japaneseOnly) filtered = filtered.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });
+    if (cuisineFilter.length > 0) filtered = filtered.filter(r => matchesCuisineFilter(r.cuisine, cuisineFilter));
+    if (japaneseOnly) filtered = filtered.filter(r => matchesJapaneseOnly(r.cuisine));
     return filtered
       .filter(r => r.lat && r.lng)
       .map((r, i) => ({ ...r, coord: { latitude: r.lat, longitude: r.lng } }));
@@ -572,7 +565,11 @@ export default function MapScreen() {
                     {['Tokyo', 'Osaka'].map((city) => (
                       <TouchableOpacity
                         key={city}
-                        onPress={() => setAllTabelogCity(city)}
+                        onPress={() => {
+                          setAllTabelogCity(city);
+                          setOsakaMeal('all');
+                          setCuisineFilter([]);
+                        }}
                         style={[styles.sheetPill, { backgroundColor: allTabelogCity === city ? '#ea580c' : tc.border }]}
                         activeOpacity={0.7}
                       >
@@ -582,6 +579,33 @@ export default function MapScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
+
+                  {allTabelogCity === 'Osaka' && (
+                    <>
+                      <Text style={[styles.fpLabel, { color: tc.textSecondary }]}>MEAL</Text>
+                      <View style={styles.sheetPillRow}>
+                        {[
+                          { label: 'All', value: 'all' },
+                          { label: 'Lunch', value: 'lunch' },
+                          { label: 'Dinner', value: 'dinner' },
+                        ].map(({ label, value }) => (
+                          <TouchableOpacity
+                            key={value}
+                            onPress={() => {
+                              setOsakaMeal(value);
+                              setCuisineFilter([]);
+                            }}
+                            style={[styles.sheetPill, { backgroundColor: osakaMeal === value ? '#ea580c' : tc.border }]}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.sheetPillText, { color: osakaMeal === value ? '#fff' : tc.textSecondary }]}>
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </>
+                  )}
                 </>
               )}
 

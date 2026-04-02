@@ -12,7 +12,7 @@ import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import { timeline } from '../data/tripData';
 import { AREA_COORDS } from '../data/coords';
-import { NON_JAPANESE, parsePrice, getCatColor, haversine, formatDist, extractCuisineTags, filterTabelogList } from '../utils';
+import { parsePrice, getCatColor, haversine, formatDist, extractCuisineTags, filterTabelogList } from '../utils';
 
 const PLACE_TYPE_COLORS = { food: 'orange', shopping: 'pink', site: 'green', activity: 'yellow' };
 
@@ -89,18 +89,7 @@ export default function NearbyRecs({ dayNumber, onBack }) {
   };
 
   const cuisineTags = useMemo(() => {
-    const cats = new Map();
-    tabelogList.forEach(r => {
-      (r.cuisine || '').split(/[,/]/).forEach(c => {
-        const t = c.trim();
-        if (t && t.length > 1) {
-          const key = t.toLowerCase();
-          if (japaneseOnly && NON_JAPANESE.some(nj => key.includes(nj))) return;
-          if (!cats.has(key)) cats.set(key, t);
-        }
-      });
-    });
-    return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    return extractCuisineTags(tabelogList, japaneseOnly);
   }, [tabelogList, japaneseOnly]);
 
   const placeTypes = useMemo(() => [...new Set(savedList.map(p => p.type).filter(Boolean))].sort(), [savedList]);
@@ -111,7 +100,6 @@ export default function NearbyRecs({ dayNumber, onBack }) {
     if (maxPrice < 15000) items = items.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); items = items.filter(r => r.rating >= min); }
     if (cuisineFilter.length > 0) items = items.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return cuisineFilter.some(c => cats.includes(c)); });
-    if (japaneseOnly) items = items.filter(r => { const cats = (r.cuisine || '').toLowerCase(); return !NON_JAPANESE.some(nj => cats.includes(nj)); });
     return items;
   }, [tabelogList, maxPrice, minRating, cuisineFilter, japaneseOnly]);
 

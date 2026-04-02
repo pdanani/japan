@@ -11,6 +11,8 @@ import {
 import { getCatColor, splitNames, filterTabelogList, extractCuisineTags } from '../utils';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
+import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
+import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
 
 const INITIAL_SHOW = 50;
 
@@ -26,6 +28,7 @@ export default function FoodMenu({ data }) {
   // === Tabelog state ===
   const [tSearch, setTSearch] = useState('');
   const [tabelogCity, setTabelogCity] = useState('Tokyo');
+  const [osakaMeal, setOsakaMeal] = useState('all');
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
@@ -56,8 +59,13 @@ export default function FoodMenu({ data }) {
 
   // === Tabelog logic ===
   const tabelogSource = useMemo(
-    () => (tabelogCity === 'Osaka' ? tabelogOsakaAll : tabelogTokyoAll),
-    [tabelogCity],
+    () => {
+      if (tabelogCity !== 'Osaka') return tabelogTokyoAll;
+      if (osakaMeal === 'lunch') return tabelogOsakaLunchAll;
+      if (osakaMeal === 'dinner') return tabelogOsakaDinnerAll;
+      return tabelogOsakaAll;
+    },
+    [tabelogCity, osakaMeal],
   );
   const cuisineTags = useMemo(
     () => extractCuisineTags(tabelogSource, japaneseOnly),
@@ -80,8 +88,8 @@ export default function FoodMenu({ data }) {
     return items;
   }, [tabelogSource, maxPrice, minRating, cuisineFilter, japaneseOnly, tSearch, stationFilter]);
 
-  const tHasFilters = maxPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly || tSearch || stationFilter;
-  const tResetAll = () => { setMaxPrice(15000); setMinRating('all'); setCuisineFilter([]); setJapaneseOnly(false); setTSearch(''); setStationFilter(''); setShowAll(false); };
+  const tHasFilters = maxPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly || tSearch || stationFilter || (tabelogCity === 'Osaka' && osakaMeal !== 'all');
+  const tResetAll = () => { setMaxPrice(15000); setMinRating('all'); setCuisineFilter([]); setJapaneseOnly(false); setTSearch(''); setStationFilter(''); setOsakaMeal('all'); setShowAll(false); };
 
   const visibleTabelog = showAll ? tabelogFiltered : tabelogFiltered.slice(0, INITIAL_SHOW);
 
@@ -92,7 +100,7 @@ export default function FoodMenu({ data }) {
           <Title order={2}>Food Menu</Title>
           <Text c="dimmed" size="sm">
             {tab === 'tabelog'
-              ? `${tabelogFiltered.length} Tabelog-rated restaurants in ${tabelogCity}`
+              ? `${tabelogFiltered.length} Tabelog-rated restaurants in ${tabelogCity}${tabelogCity === 'Osaka' && osakaMeal !== 'all' ? ` (${osakaMeal})` : ''}`
               : `${filtered.length} restaurant${filtered.length !== 1 ? 's' : ''} from our picks`
             }
           </Text>
@@ -122,6 +130,7 @@ export default function FoodMenu({ data }) {
                 value={tabelogCity}
                 onChange={(value) => {
                   setTabelogCity(value);
+                  setOsakaMeal('all');
                   setCuisineFilter([]);
                   setStationFilter('');
                   setTSearch('');
@@ -135,6 +144,27 @@ export default function FoodMenu({ data }) {
                   { label: 'Osaka', value: 'Osaka' },
                 ]}
               />
+
+              {tabelogCity === 'Osaka' && (
+                <SegmentedControl
+                  value={osakaMeal}
+                  onChange={(value) => {
+                    setOsakaMeal(value);
+                    setCuisineFilter([]);
+                    setStationFilter('');
+                    setTSearch('');
+                    setShowAll(false);
+                  }}
+                  size="sm"
+                  radius="xl"
+                  color="yellow"
+                  data={[
+                    { label: 'All', value: 'all' },
+                    { label: 'Lunch', value: 'lunch' },
+                    { label: 'Dinner', value: 'dinner' },
+                  ]}
+                />
+              )}
 
               <TextInput
                 placeholder={`Search name, cuisine, or station in ${tabelogCity}...`}

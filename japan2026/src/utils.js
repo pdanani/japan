@@ -3,8 +3,11 @@
 export const NON_JAPANESE = [
   'italian', 'french', 'indian', 'chinese', 'sichuan', 'korean',
   'thai', 'vietnamese', 'spanish', 'american', 'peruvian',
-  'nepalese', 'sri lankan', 'bistro', 'pizza', 'pasta', 'steak',
+  'nepalese', 'sri lankan', 'pizza', 'pasta',
 ];
+
+const JAPANESE_NOODLE_TAGS = ['ramen', 'tsukemen', 'tantan-men'];
+const CHINESE_NOODLE_NOISE_TAGS = ['chinese', 'sichuan'];
 
 export const TYPE_CONFIG = {
   transport: { color: 'violet', hex: '#7c3aed', label: 'Transport' },
@@ -56,6 +59,34 @@ export function splitNames(name) {
   return name.split(/\s*[/,]\s*/).map(n => n.trim()).filter(Boolean);
 }
 
+function splitCuisine(cuisine) {
+  return (cuisine || '').split(/[,/]/).map(c => c.trim()).filter(c => c.length > 1);
+}
+
+export function normalizeCuisineTags(cuisine) {
+  const tags = splitCuisine(cuisine);
+  const lowered = tags.map(tag => tag.toLowerCase());
+  const hasJapaneseNoodleTag = JAPANESE_NOODLE_TAGS.some(tag => lowered.some(value => value.includes(tag)));
+
+  // Tabelog sometimes adds "Chinese" or "Sichuan" to ramen/tsukemen/tantan-men shops.
+  // When future sweeps bring in more of these, keep the noodle tag and drop the noisy
+  // Chinese label so Japanese-only does not exclude clearly Japanese noodle spots.
+  if (hasJapaneseNoodleTag) {
+    return tags.filter(tag => !CHINESE_NOODLE_NOISE_TAGS.some(noise => tag.toLowerCase().includes(noise)));
+  }
+
+  return tags;
+}
+
+function cuisineHaystack(cuisine) {
+  return normalizeCuisineTags(cuisine).join(' ').toLowerCase();
+}
+
+export function matchesJapaneseOnly(cuisine) {
+  const cats = cuisineHaystack(cuisine);
+  return !NON_JAPANESE.some(nj => cats.includes(nj));
+}
+
 export function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -74,13 +105,10 @@ export function formatDist(km) {
 export function extractCuisineTags(tabelogList, japaneseOnly) {
   const cats = new Map();
   tabelogList.forEach(r => {
-    (r.cuisine || '').split(/[,/]/).forEach(c => {
-      const t = c.trim();
-      if (t && t.length > 1) {
-        const key = t.toLowerCase();
-        if (japaneseOnly && NON_JAPANESE.some(nj => key.includes(nj))) return;
-        if (!cats.has(key)) cats.set(key, t);
-      }
+    normalizeCuisineTags(r.cuisine).forEach(t => {
+      const key = t.toLowerCase();
+      if (japaneseOnly && !matchesJapaneseOnly(t)) return;
+      if (!cats.has(key)) cats.set(key, t);
     });
   });
   return [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -97,15 +125,12 @@ export function filterTabelogList(items, { maxPrice, minRating, cuisineFilter, j
   }
   if (cuisineFilter.length > 0) {
     filtered = filtered.filter(r => {
-      const cats = (r.cuisine || '').toLowerCase();
+      const cats = cuisineHaystack(r.cuisine);
       return cuisineFilter.some(c => cats.includes(c));
     });
   }
   if (japaneseOnly) {
-    filtered = filtered.filter(r => {
-      const cats = (r.cuisine || '').toLowerCase();
-      return !NON_JAPANESE.some(nj => cats.includes(nj));
-    });
+    filtered = filtered.filter(r => matchesJapaneseOnly(r.cuisine));
   }
   return filtered;
 }
