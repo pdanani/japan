@@ -8,8 +8,9 @@ import {
   IconSearch, IconMapPin, IconUser, IconExternalLink, IconFilter, IconX,
   IconStarFilled, IconToolsKitchen2,
 } from '@tabler/icons-react';
-import { getCatColor, splitNames, filterTabelogList, extractCuisineTags } from '../utils';
+import { getCatColor, splitNames, filterTabelogList, extractCuisineTags, getMealDatasets } from '../utils';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
+import { tabelogDinnerAll as tabelogTokyoDinnerAll } from '../data/tabelogDinnerAll';
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
 import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
@@ -28,7 +29,7 @@ export default function FoodMenu({ data }) {
   // === Tabelog state ===
   const [tSearch, setTSearch] = useState('');
   const [tabelogCity, setTabelogCity] = useState('Tokyo');
-  const [osakaMeal, setOsakaMeal] = useState('all');
+  const [mealFilter, setMealFilter] = useState('all');
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
@@ -58,14 +59,20 @@ export default function FoodMenu({ data }) {
   const hasActiveFilters = locFilter !== 'All' || selectedPeople.length > 0 || search;
 
   // === Tabelog logic ===
+  const tokyoMeals = useMemo(
+    () => getMealDatasets(tabelogTokyoAll, tabelogTokyoDinnerAll),
+    [],
+  );
+  const osakaMeals = useMemo(
+    () => ({ all: tabelogOsakaAll, lunch: tabelogOsakaLunchAll, dinner: tabelogOsakaDinnerAll }),
+    [],
+  );
   const tabelogSource = useMemo(
     () => {
-      if (tabelogCity !== 'Osaka') return tabelogTokyoAll;
-      if (osakaMeal === 'lunch') return tabelogOsakaLunchAll;
-      if (osakaMeal === 'dinner') return tabelogOsakaDinnerAll;
-      return tabelogOsakaAll;
+      const meals = tabelogCity === 'Osaka' ? osakaMeals : tokyoMeals;
+      return meals[mealFilter] || meals.all;
     },
-    [tabelogCity, osakaMeal],
+    [tabelogCity, mealFilter, osakaMeals, tokyoMeals],
   );
   const cuisineTags = useMemo(
     () => extractCuisineTags(tabelogSource, japaneseOnly),
@@ -88,8 +95,8 @@ export default function FoodMenu({ data }) {
     return items;
   }, [tabelogSource, maxPrice, minRating, cuisineFilter, japaneseOnly, tSearch, stationFilter]);
 
-  const tHasFilters = maxPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly || tSearch || stationFilter || (tabelogCity === 'Osaka' && osakaMeal !== 'all');
-  const tResetAll = () => { setMaxPrice(15000); setMinRating('all'); setCuisineFilter([]); setJapaneseOnly(false); setTSearch(''); setStationFilter(''); setOsakaMeal('all'); setShowAll(false); };
+  const tHasFilters = maxPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly || tSearch || stationFilter || mealFilter !== 'all';
+  const tResetAll = () => { setMaxPrice(15000); setMinRating('all'); setCuisineFilter([]); setJapaneseOnly(false); setTSearch(''); setStationFilter(''); setMealFilter('all'); setShowAll(false); };
 
   const visibleTabelog = showAll ? tabelogFiltered : tabelogFiltered.slice(0, INITIAL_SHOW);
 
@@ -100,7 +107,7 @@ export default function FoodMenu({ data }) {
           <Title order={2}>Food Menu</Title>
           <Text c="dimmed" size="sm">
             {tab === 'tabelog'
-              ? `${tabelogFiltered.length} Tabelog-rated restaurants in ${tabelogCity}${tabelogCity === 'Osaka' && osakaMeal !== 'all' ? ` (${osakaMeal})` : ''}`
+              ? `${tabelogFiltered.length} Tabelog-rated restaurants in ${tabelogCity}${mealFilter !== 'all' ? ` (${mealFilter})` : ''}`
               : `${filtered.length} restaurant${filtered.length !== 1 ? 's' : ''} from our picks`
             }
           </Text>
@@ -130,7 +137,7 @@ export default function FoodMenu({ data }) {
                 value={tabelogCity}
                 onChange={(value) => {
                   setTabelogCity(value);
-                  setOsakaMeal('all');
+                  setMealFilter('all');
                   setCuisineFilter([]);
                   setStationFilter('');
                   setTSearch('');
@@ -145,26 +152,24 @@ export default function FoodMenu({ data }) {
                 ]}
               />
 
-              {tabelogCity === 'Osaka' && (
-                <SegmentedControl
-                  value={osakaMeal}
-                  onChange={(value) => {
-                    setOsakaMeal(value);
-                    setCuisineFilter([]);
-                    setStationFilter('');
-                    setTSearch('');
-                    setShowAll(false);
-                  }}
-                  size="sm"
-                  radius="xl"
-                  color="yellow"
-                  data={[
-                    { label: 'All', value: 'all' },
-                    { label: 'Lunch', value: 'lunch' },
-                    { label: 'Dinner', value: 'dinner' },
-                  ]}
-                />
-              )}
+              <SegmentedControl
+                value={mealFilter}
+                onChange={(value) => {
+                  setMealFilter(value);
+                  setCuisineFilter([]);
+                  setStationFilter('');
+                  setTSearch('');
+                  setShowAll(false);
+                }}
+                size="sm"
+                radius="xl"
+                color="yellow"
+                data={[
+                  { label: 'All', value: 'all' },
+                  { label: 'Lunch', value: 'lunch' },
+                  { label: 'Dinner', value: 'dinner' },
+                ]}
+              />
 
               <TextInput
                 placeholder={`Search name, cuisine, or station in ${tabelogCity}...`}

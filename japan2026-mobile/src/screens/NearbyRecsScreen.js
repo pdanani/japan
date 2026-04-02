@@ -231,7 +231,7 @@ export default function NearbyRecsScreen({ route }) {
       items = items.filter(r => r.rating >= min);
     }
     if (cuisineFilter.length > 0) {
-      items = items.filter(r => matchesCuisineFilter(r.cuisine, cuisineFilter));
+      items = items.filter(r => matchesCuisineFilter(r.cuisine, cuisineFilter, japaneseOnly));
     }
     if (japaneseOnly) {
       items = items.filter(r => matchesJapaneseOnly(r.cuisine));

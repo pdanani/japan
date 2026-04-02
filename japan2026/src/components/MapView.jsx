@@ -18,10 +18,11 @@ import {
 } from '../data/coords';
 import { MAPBOX_TOKEN } from '../data/mapConfig';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
+import { tabelogDinnerAll as tabelogTokyoDinnerAll } from '../data/tabelogDinnerAll';
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
 import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
-import { extractCuisineTags, matchesJapaneseOnly, normalizeCuisineTags } from '../utils';
+import { extractCuisineTags, getMealDatasets, matchesJapaneseOnly, normalizeCuisineTags } from '../utils';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -67,32 +68,38 @@ export default function MapViewComponent() {
   const [mapReady, setMapReady] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [allTabelogCity, setAllTabelogCity] = useState('Tokyo');
-  const [osakaMeal, setOsakaMeal] = useState('all');
+  const [mealFilter, setMealFilter] = useState('all');
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
 
-  const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0 || (layers.allTabelog && allTabelogCity === 'Osaka' && osakaMeal !== 'all');
-  const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); setOsakaMeal('all'); };
+  const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0 || (layers.allTabelog && mealFilter !== 'all');
+  const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); setMealFilter('all'); };
 
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
+  const tokyoMeals = useMemo(
+    () => getMealDatasets(tabelogTokyoAll, tabelogTokyoDinnerAll),
+    [],
+  );
+  const osakaMeals = useMemo(
+    () => ({ all: tabelogOsakaAll, lunch: tabelogOsakaLunchAll, dinner: tabelogOsakaDinnerAll }),
+    [],
+  );
   const allTabelogSource = useMemo(
     () => {
-      if (allTabelogCity !== 'Osaka') return tabelogTokyoAll;
-      if (osakaMeal === 'lunch') return tabelogOsakaLunchAll;
-      if (osakaMeal === 'dinner') return tabelogOsakaDinnerAll;
-      return tabelogOsakaAll;
+      const meals = allTabelogCity === 'Osaka' ? osakaMeals : tokyoMeals;
+      return meals[mealFilter] || meals.all;
     },
-    [allTabelogCity, osakaMeal],
+    [allTabelogCity, mealFilter, osakaMeals, tokyoMeals],
   );
   const toggleLayer = (key) => setLayers(prev => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
     setAllTabelogCity(inferTabelogCity(day));
-    setOsakaMeal('all');
+    setMealFilter('all');
   }, [day]);
 
   const itineraryPins = useMemo(() => {
@@ -115,7 +122,7 @@ export default function MapViewComponent() {
     if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
     if (cuisineFilter.length > 0) filtered = filtered.filter(r => {
-      const cats = normalizeCuisineTags(r.cuisine).join(' ').toLowerCase();
+      const cats = normalizeCuisineTags(r.cuisine, { japaneseOnly }).join(' ').toLowerCase();
       return cuisineFilter.some(c => cats.includes(c));
     });
     if (japaneseOnly) filtered = filtered.filter(r => matchesJapaneseOnly(r.cuisine));
@@ -141,7 +148,7 @@ export default function MapViewComponent() {
     if (maxPrice < 15000) filtered = filtered.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); filtered = filtered.filter(r => r.rating >= min); }
     if (cuisineFilter.length > 0) filtered = filtered.filter(r => {
-      const cats = normalizeCuisineTags(r.cuisine).join(' ').toLowerCase();
+      const cats = normalizeCuisineTags(r.cuisine, { japaneseOnly }).join(' ').toLowerCase();
       return cuisineFilter.some(c => cats.includes(c));
     });
     if (japaneseOnly) filtered = filtered.filter(r => matchesJapaneseOnly(r.cuisine));
@@ -577,7 +584,7 @@ export default function MapViewComponent() {
                         key={city}
                         onClick={() => {
                           setAllTabelogCity(city);
-                          setOsakaMeal('all');
+                          setMealFilter('all');
                           setCuisineFilter([]);
                         }}
                         style={{
@@ -592,34 +599,32 @@ export default function MapViewComponent() {
                     ))}
                   </div>
 
-                  {allTabelogCity === 'Osaka' && (
-                    <>
-                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={8}>Meal</Text>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-                        {[
-                          { label: 'All', value: 'all' },
-                          { label: 'Lunch', value: 'lunch' },
-                          { label: 'Dinner', value: 'dinner' },
-                        ].map(({ label, value }) => (
-                          <UnstyledButton
-                            key={value}
-                            onClick={() => {
-                              setOsakaMeal(value);
-                              setCuisineFilter([]);
-                            }}
-                            style={{
-                              padding: '8px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
-                              background: osakaMeal === value ? '#ea580c' : ov.border,
-                              color: osakaMeal === value ? '#fff' : ov.textDim,
-                              transition: 'all 0.15s',
-                            }}
-                          >
-                            {label}
-                          </UnstyledButton>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  <>
+                    <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={8}>Meal</Text>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                      {[
+                        { label: 'All', value: 'all' },
+                        { label: 'Lunch', value: 'lunch' },
+                        { label: 'Dinner', value: 'dinner' },
+                      ].map(({ label, value }) => (
+                        <UnstyledButton
+                          key={value}
+                          onClick={() => {
+                            setMealFilter(value);
+                            setCuisineFilter([]);
+                          }}
+                          style={{
+                            padding: '8px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                            background: mealFilter === value ? '#ea580c' : ov.border,
+                            color: mealFilter === value ? '#fff' : ov.textDim,
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {label}
+                        </UnstyledButton>
+                      ))}
+                    </div>
+                  </>
                 </>
               )}
 

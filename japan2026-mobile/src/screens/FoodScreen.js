@@ -8,10 +8,11 @@ import Badge from '../components/Badge';
 import SearchBar from '../components/SearchBar';
 import FilterChip from '../components/FilterChip';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
+import { tabelogDinnerAll as tabelogTokyoDinnerAll } from '../data/tabelogDinnerAll';
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
 import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
 import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
-import { extractCuisineTags, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
+import { extractCuisineTags, getMealDatasets, matchesCuisineFilter, matchesJapaneseOnly } from '../tabelogCuisine';
 
 function parsePrice(p) {
   if (!p) return 0;
@@ -52,7 +53,7 @@ export default function FoodScreen({ data }) {
   // === Tabelog state ===
   const [tSearch, setTSearch] = useState('');
   const [tabelogCity, setTabelogCity] = useState('Tokyo');
-  const [osakaMeal, setOsakaMeal] = useState('all');
+  const [mealFilter, setMealFilter] = useState('all');
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState('all');
   const [japaneseOnly, setJapaneseOnly] = useState(false);
@@ -79,14 +80,20 @@ export default function FoodScreen({ data }) {
   const togglePerson = (p) => setSelectedPeople(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
 
   // === Tabelog logic ===
+  const tokyoMeals = useMemo(
+    () => getMealDatasets(tabelogTokyoAll, tabelogTokyoDinnerAll),
+    [],
+  );
+  const osakaMeals = useMemo(
+    () => ({ all: tabelogOsakaAll, lunch: tabelogOsakaLunchAll, dinner: tabelogOsakaDinnerAll }),
+    [],
+  );
   const tabelogSource = useMemo(
     () => {
-      if (tabelogCity !== 'Osaka') return tabelogTokyoAll;
-      if (osakaMeal === 'lunch') return tabelogOsakaLunchAll;
-      if (osakaMeal === 'dinner') return tabelogOsakaDinnerAll;
-      return tabelogOsakaAll;
+      const meals = tabelogCity === 'Osaka' ? osakaMeals : tokyoMeals;
+      return meals[mealFilter] || meals.all;
     },
-    [tabelogCity, osakaMeal],
+    [tabelogCity, mealFilter, osakaMeals, tokyoMeals],
   );
   const cuisineTags = useMemo(() => {
     return extractCuisineTags(tabelogSource, japaneseOnly);
@@ -96,7 +103,7 @@ export default function FoodScreen({ data }) {
     let items = tabelogSource;
     if (maxPrice < 15000) items = items.filter(r => parsePrice(r.price) <= maxPrice);
     if (minRating !== 'all') { const min = parseFloat(minRating); items = items.filter(r => r.rating >= min); }
-    if (cuisineFilter.length > 0) items = items.filter(r => matchesCuisineFilter(r.cuisine, cuisineFilter));
+    if (cuisineFilter.length > 0) items = items.filter(r => matchesCuisineFilter(r.cuisine, cuisineFilter, japaneseOnly));
     if (japaneseOnly) items = items.filter(r => matchesJapaneseOnly(r.cuisine));
     if (tSearch) {
       const q = tSearch.toLowerCase();
@@ -105,15 +112,15 @@ export default function FoodScreen({ data }) {
     return items;
   }, [tabelogSource, maxPrice, minRating, cuisineFilter, japaneseOnly, tSearch]);
 
-  const tHasFilters = maxPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly || tSearch || (tabelogCity === 'Osaka' && osakaMeal !== 'all');
-  const tResetAll = () => { setMaxPrice(15000); setMinRating('all'); setCuisineFilter([]); setJapaneseOnly(false); setTSearch(''); setOsakaMeal('all'); setShowAll(false); };
+  const tHasFilters = maxPrice < 15000 || minRating !== 'all' || cuisineFilter.length > 0 || japaneseOnly || tSearch || mealFilter !== 'all';
+  const tResetAll = () => { setMaxPrice(15000); setMinRating('all'); setCuisineFilter([]); setJapaneseOnly(false); setTSearch(''); setMealFilter('all'); setShowAll(false); };
   const visibleTabelog = showAll ? tabelogFiltered : tabelogFiltered.slice(0, INITIAL_SHOW);
 
   return (
     <View style={[styles.screen, { backgroundColor: tc.bg }]}>
       <Text style={[styles.title, { color: tc.text }]}>Food Menu</Text>
       <Text style={[styles.subtitle, { color: tc.textMuted }]}>
-        {tab === 'tabelog' ? `${tabelogFiltered.length} Tabelog-rated restaurants in ${tabelogCity}${tabelogCity === 'Osaka' && osakaMeal !== 'all' ? ` (${osakaMeal})` : ''}` : `${filtered.length} from our picks`}
+        {tab === 'tabelog' ? `${tabelogFiltered.length} Tabelog-rated restaurants in ${tabelogCity}${mealFilter !== 'all' ? ` (${mealFilter})` : ''}` : `${filtered.length} from our picks`}
       </Text>
 
       {/* Tab switcher */}
@@ -150,7 +157,7 @@ export default function FoodScreen({ data }) {
                     key={city}
                     onPress={() => {
                       setTabelogCity(city);
-                      setOsakaMeal('all');
+                      setMealFilter('all');
                       setCuisineFilter([]);
                       setTSearch('');
                       setShowAll(false);
@@ -165,31 +172,29 @@ export default function FoodScreen({ data }) {
                 ))}
               </View>
 
-              {tabelogCity === 'Osaka' && (
-                <View style={[styles.cityRow, { backgroundColor: tc.card, borderColor: tc.border }]}>
-                  {[
-                    { label: 'All', value: 'all' },
-                    { label: 'Lunch', value: 'lunch' },
-                    { label: 'Dinner', value: 'dinner' },
-                  ].map(({ label, value }) => (
-                    <TouchableOpacity
-                      key={value}
-                      onPress={() => {
-                        setOsakaMeal(value);
-                        setCuisineFilter([]);
-                        setTSearch('');
-                        setShowAll(false);
-                      }}
-                      style={[styles.cityBtn, osakaMeal === value && { backgroundColor: colors.primary }]}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.cityBtnText, { color: osakaMeal === value ? '#fff' : tc.textMuted }]}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              <View style={[styles.cityRow, { backgroundColor: tc.card, borderColor: tc.border }]}>
+                {[
+                  { label: 'All', value: 'all' },
+                  { label: 'Lunch', value: 'lunch' },
+                  { label: 'Dinner', value: 'dinner' },
+                ].map(({ label, value }) => (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => {
+                      setMealFilter(value);
+                      setCuisineFilter([]);
+                      setTSearch('');
+                      setShowAll(false);
+                    }}
+                    style={[styles.cityBtn, mealFilter === value && { backgroundColor: colors.primary }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.cityBtnText, { color: mealFilter === value ? '#fff' : tc.textMuted }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               <SearchBar value={tSearch} onChangeText={(v) => { setTSearch(v); setShowAll(false); }} placeholder={`Search name, cuisine, station in ${tabelogCity}...`} />
 
