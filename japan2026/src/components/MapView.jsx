@@ -8,7 +8,7 @@ import {
 import {
   IconStarFilled, IconBookmark, IconNavigation,
   IconChevronLeft, IconChevronRight, IconRoute, IconTimeline,
-  IconFilter, IconX, IconSearch,
+  IconFilter, IconX,
 } from '@tabler/icons-react';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
@@ -74,11 +74,6 @@ export default function MapViewComponent() {
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
   const [cuisineLayout, setCuisineLayout] = useState('grouped');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedSearchPin, setSelectedSearchPin] = useState(null);
 
   const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0 || (layers.allTabelog && mealFilter !== 'all');
   const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); setMealFilter('all'); };
@@ -189,15 +184,6 @@ export default function MapViewComponent() {
     return pins;
   }, [layers, itineraryPins, tabelogPins, savedPins, allTabelogPins]);
 
-  const searchablePins = useMemo(() => allVisiblePins.map((pin) => ({
-    id: pin.key,
-    source: 'itinerary',
-    title: pin.title,
-    subtitle: pin.subtitle,
-    coord: pin.coord,
-    pin,
-  })), [allVisiblePins]);
-
   // Itinerary carousel pins
   const carouselPins = useMemo(() => {
     if (!layers.itinerary) return [];
@@ -257,21 +243,6 @@ export default function MapViewComponent() {
       },
     };
   }, [layers.itinerary, itineraryPins]);
-
-  const searchPinGeoJSON = useMemo(() => {
-    if (!selectedSearchPin?.coord) return { type: 'FeatureCollection', features: [] };
-    return {
-      type: 'FeatureCollection',
-      features: [{
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [selectedSearchPin.coord.longitude, selectedSearchPin.coord.latitude],
-        },
-        properties: {},
-      }],
-    };
-  }, [selectedSearchPin]);
 
   // Init map
   useEffect(() => {
@@ -344,16 +315,6 @@ export default function MapViewComponent() {
           'circle-stroke-color': '#facc15',
         },
       });
-      map.current.addSource('search-result', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.current.addLayer({
-        id: 'search-result-ring', type: 'circle', source: 'search-result',
-        paint: {
-          'circle-radius': 10,
-          'circle-color': '#ffffff',
-          'circle-stroke-width': 4,
-          'circle-stroke-color': '#1d4ed8',
-        },
-      });
 
       // Click handler — show pin in bottom card (uses ref for current data)
       map.current.on('click', 'pins-circle', (e) => {
@@ -409,8 +370,6 @@ export default function MapViewComponent() {
       map.current.addLayer({ id: 'pins-label', type: 'symbol', source: 'pins', layout: { 'text-field': ['get', 'label'], 'text-size': ['case', ['==', ['get', 'kind'], 'itinerary'], 12, 8], 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'icon-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
       map.current.addSource('highlight', { type: 'geojson', data: highlightGeoJSON });
       map.current.addLayer({ id: 'highlight-ring', type: 'circle', source: 'highlight', paint: { 'circle-radius': 14, 'circle-color': ['get', 'color'], 'circle-stroke-width': 3, 'circle-stroke-color': '#facc15' } });
-      map.current.addSource('search-result', { type: 'geojson', data: searchPinGeoJSON });
-      map.current.addLayer({ id: 'search-result-ring', type: 'circle', source: 'search-result', paint: { 'circle-radius': 10, 'circle-color': '#ffffff', 'circle-stroke-width': 4, 'circle-stroke-color': '#1d4ed8' } });
       // Update with current data
       const routeSrc = map.current.getSource('route');
       if (routeSrc) routeSrc.setData(showRoute && routeGeoJSON ? routeGeoJSON : { type: 'FeatureCollection', features: [] });
@@ -438,12 +397,6 @@ export default function MapViewComponent() {
     const src = map.current.getSource('highlight');
     if (src) src.setData(highlightGeoJSON);
   }, [mapReady, highlightGeoJSON]);
-
-  useEffect(() => {
-    if (!map.current || !mapReady) return;
-    const src = map.current.getSource('search-result');
-    if (src) src.setData(searchPinGeoJSON);
-  }, [mapReady, searchPinGeoJSON]);
 
   // Fit map only when day changes (not on layer/filter toggles)
   useEffect(() => {
@@ -481,80 +434,6 @@ export default function MapViewComponent() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${pin.coord.latitude},${pin.coord.longitude}`, '_blank');
   };
 
-  useEffect(() => {
-    const query = searchQuery.trim();
-    if (!query) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      const normalized = query.toLowerCase();
-      const localMatches = searchablePins
-        .filter((item) => `${item.title} ${item.subtitle}`.toLowerCase().includes(normalized))
-        .slice(0, 5);
-
-      if (MAPBOX_TOKEN === 'YOUR_MAPBOX_TOKEN_HERE') {
-        setSearchResults(localMatches);
-        return;
-      }
-
-      try {
-        setIsSearching(true);
-        const center = map.current?.getCenter();
-        const proximity = center ? `&proximity=${center.lng},${center.lat}` : '';
-        const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=5&types=poi,address,place,neighborhood&country=jp${proximity}&access_token=${MAPBOX_TOKEN}`,
-        );
-        const data = await response.json();
-        const remote = (data.features || []).map((feature) => ({
-          id: feature.id,
-          source: 'mapbox',
-          title: feature.text || feature.place_name,
-          subtitle: feature.place_name,
-          coord: {
-            latitude: feature.center[1],
-            longitude: feature.center[0],
-          },
-        }));
-        setSearchResults([...localMatches, ...remote].slice(0, 8));
-      } catch (error) {
-        setSearchResults(localMatches);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchablePins]);
-
-  const handleSelectSearchResult = useCallback((result) => {
-    setSearchOpen(false);
-    setSearchQuery(result.title);
-
-    if (result.source === 'itinerary' && result.pin) {
-      if (result.pin.kind === 'itinerary') {
-        setCarouselMode('itinerary');
-        setSelectedPin(null);
-        setActivePin(result.pin.index);
-      } else {
-        const idx = nonItinPins.findIndex(p => p.key === result.pin.key);
-        setCarouselMode('tabelog');
-        setSelectedPin(idx >= 0 ? idx : 0);
-      }
-    }
-
-    setSelectedSearchPin(result);
-    if (map.current) {
-      map.current.flyTo({
-        center: [result.coord.longitude, result.coord.latitude],
-        zoom: 15,
-        duration: 800,
-      });
-    }
-  }, [nonItinPins]);
-
   const displayPin = carouselMode === 'tabelog' ? activeNonItinPin : carouselPins[activePin];
 
   return (
@@ -589,61 +468,9 @@ export default function MapViewComponent() {
           </Group>
         </ScrollArea>
       </div>
-      <div style={{ position: 'absolute', top: 62, left: 12, right: 12, zIndex: 11 }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-          borderRadius: 12, border: `1px solid ${ov.border}`, background: ov.overlay,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-        }}>
-          <IconSearch size={16} color={ov.textDim} />
-          <input
-            value={searchQuery}
-            onFocus={() => setSearchOpen(true)}
-            onChange={(e) => { setSearchQuery(e.currentTarget.value); setSearchOpen(true); }}
-            placeholder="Search POIs, restaurants, stations..."
-            style={{
-              flex: 1, border: 'none', outline: 'none', background: 'transparent',
-              color: ov.text, fontSize: 13, fontWeight: 500,
-            }}
-          />
-          {searchQuery && (
-            <ActionIcon variant="subtle" color="gray" size="sm" onClick={() => { setSearchQuery(''); setSearchResults([]); setSelectedSearchPin(null); }}>
-              <IconX size={14} />
-            </ActionIcon>
-          )}
-        </div>
-        {searchOpen && (searchQuery.trim() || searchResults.length > 0) && (
-          <div style={{
-            marginTop: 6, borderRadius: 12, border: `1px solid ${ov.border}`, background: ov.bg,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.18)', overflow: 'hidden',
-          }}>
-            {isSearching && (
-              <Text size="xs" c="dimmed" px={12} py={8}>Searching…</Text>
-            )}
-            {!isSearching && searchResults.length === 0 && (
-              <Text size="xs" c="dimmed" px={12} py={8}>No matches yet</Text>
-            )}
-            {searchResults.map((result) => (
-              <UnstyledButton
-                key={result.id}
-                onClick={() => handleSelectSearchResult(result)}
-                style={{
-                  width: '100%', padding: '10px 12px', textAlign: 'left', borderTop: `1px solid ${ov.border}`,
-                  display: 'grid', gap: 2,
-                }}
-              >
-                <Text size="sm" fw={600} lineClamp={1}>{result.title}</Text>
-                <Text size="xs" c="dimmed" lineClamp={1}>
-                  {result.source === 'itinerary' ? 'In itinerary map' : result.subtitle}
-                </Text>
-              </UnstyledButton>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Layer toggles */}
-      <div style={{ position: 'absolute', top: 114, left: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ position: 'absolute', top: 60, left: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
           { key: 'itinerary', label: 'Itinerary', color: '#b91c1c', icon: <IconRoute size={14} /> },
           { key: 'tabelog', label: 'Nearby', color: '#ea580c', icon: <IconStarFilled size={14} /> },
