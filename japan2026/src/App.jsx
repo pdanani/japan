@@ -10,7 +10,6 @@ import FoodMenu from './components/FoodMenu';
 import Activities from './components/Activities';
 import TravelGroup from './components/TravelGroup';
 import NearbyRecs from './components/NearbyRecs';
-import MapErrorBoundary from './components/MapErrorBoundary';
 
 const MapViewComponent = lazy(() => import('./components/MapView'));
 import { SHEET_ID, initialFood, initialActivities, timeline as initialTimeline } from './data/tripData';
@@ -259,11 +258,9 @@ export default function App() {
 
       {/* Map — full bleed */}
       {activeTab === 'map' && (
-        <MapErrorBoundary>
-          <Suspense fallback={<Center h="80vh"><Loader color="red" /></Center>}>
-            <MapViewComponent darkMode={darkMode} />
-          </Suspense>
-        </MapErrorBoundary>
+        <Suspense fallback={<Center h="80vh"><Loader color="red" /></Center>}>
+          <MapViewComponent />
+        </Suspense>
       )}
 
       {/* All other tabs — inside container */}

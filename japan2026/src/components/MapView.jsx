@@ -47,15 +47,15 @@ const TYPE_CONFIG = {
   activity: { color: '#ca8a04', label: 'Activity' },
 };
 
-export default function MapViewComponent({ darkMode }) {
-  const isDark = darkMode;
-  const ov = useMemo(() => ({
+export default function MapViewComponent() {
+  const isDark = document.querySelector('[data-theme="dark"]') !== null;
+  const ov = {
     bg: isDark ? '#1c1c1e' : '#fff',
     text: isDark ? '#f5f5f5' : '#1f2937',
     textDim: isDark ? '#a1a1aa' : '#6b7280',
     border: isDark ? '#2c2c2e' : '#e5e7eb',
     overlay: isDark ? 'rgba(17,17,17,0.92)' : 'rgba(255,255,255,0.92)',
-  }), [isDark]);
+  };
   const mapContainer = useRef(null);
   const map = useRef(null);
   const pinsRef = useRef([]); // always-current reference to allVisiblePins
@@ -83,9 +83,9 @@ export default function MapViewComponent({ darkMode }) {
   const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0 || (layers.allTabelog && mealFilter !== 'all');
   const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); setMealFilter('all'); };
 
-  const day = useMemo(() => timeline.find(d => d.day === selected), [selected]);
+  const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
-  const savedList = useMemo(() => getPlacesForDay(selected), [selected]);
+  const savedList = getPlacesForDay(selected);
   const tokyoMeals = useMemo(
     () => getMealDatasets(tabelogTokyoAll, tabelogTokyoDinnerAll),
     [],
@@ -276,19 +276,18 @@ export default function MapViewComponent({ darkMode }) {
   // Init map
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
-    try {
-      const dayCenter = day ? getDayCenter(day) : { latitude: 35.6762, longitude: 139.6503 };
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
-        center: [dayCenter.longitude, dayCenter.latitude],
-        zoom: 13,
-      });
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      map.current.addControl(new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-      }), 'top-right');
+    const dayCenter = day ? getDayCenter(day) : { latitude: 35.6762, longitude: 139.6503 };
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
+      center: [dayCenter.longitude, dayCenter.latitude],
+      zoom: 13,
+    });
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    map.current.addControl(new mapboxgl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: true,
+    }), 'top-right');
 
     map.current.on('load', () => {
       // Route glow layer
@@ -389,10 +388,6 @@ export default function MapViewComponent({ darkMode }) {
     });
 
     return () => { map.current?.remove(); map.current = null; };
-    } catch (error) {
-      console.error('MapView: Failed to initialize map', error);
-      // Don't re-throw the error to prevent infinite remounting
-    }
   }, []);
 
   // Swap map style when dark mode changes
@@ -510,7 +505,7 @@ export default function MapViewComponent({ darkMode }) {
         const center = map.current?.getCenter();
         const proximity = center ? `&proximity=${center.lng},${center.lat}` : '';
         const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=5&types=poi,address,place,neighborhood&language=en&access_token=${MAPBOX_TOKEN}`,
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=5&types=poi,address,place,neighborhood&country=jp${proximity}&access_token=${MAPBOX_TOKEN}`,
         );
         const data = await response.json();
         const remote = (data.features || []).map((feature) => ({
