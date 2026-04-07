@@ -576,8 +576,8 @@ export default function MapViewComponent() {
               quality,
             };
           })
-          // Only keep results with some match quality (>10%) - lowered threshold
-          .filter((r) => r.quality > 10)
+          // Only keep results with decent match quality (>20%) - stricter for multi-word
+          .filter((r) => r.quality > 20)
           .sort((a, b) => a.distance - b.distance);
 
         // 3. Combine: Tabelog restaurants first, then local pins, then Mapbox results
@@ -612,8 +612,11 @@ export default function MapViewComponent() {
     const matchedWords = queryWords.filter(word => text.includes(word));
     const matchPercentage = (matchedWords.length / queryWords.length) * 100;
     
-    // If multi-word query, require at least 50% of words to match
-    if (queryWords.length > 1 && matchPercentage < 50) return 0;
+    // For multi-word queries, require ALL words to appear (100% match)
+    if (queryWords.length > 1 && matchPercentage < 100) return 0;
+    
+    // For single word queries, allow partial matches but require higher relevance
+    if (queryWords.length === 1 && matchPercentage < 50) return 0;
     
     // Proximity bonus: if words appear close together
     if (queryWords.length > 1) {
