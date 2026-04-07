@@ -562,6 +562,7 @@ export default function MapViewComponent() {
         const remote = (data.features || [])
           .map((feature) => {
             const distance = calculateDistance(centerLat, centerLng, feature.center[1], feature.center[0]);
+            const quality = calculateMatchQuality(query, feature.text || '', feature.place_name || '');
             return {
               id: feature.id,
               source: 'mapbox',
@@ -572,8 +573,11 @@ export default function MapViewComponent() {
                 longitude: feature.center[0],
               },
               distance,
+              quality,
             };
           })
+          // Only keep results with decent match quality (>30%)
+          .filter((r) => r.quality > 30)
           .sort((a, b) => a.distance - b.distance);
 
         // 3. Combine: Tabelog restaurants first, then local pins, then Mapbox results
@@ -592,6 +596,37 @@ export default function MapViewComponent() {
     }, 300);
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
+
+  // Helper: Calculate match quality (0-100)
+  const calculateMatchQuality = (query, title, subtitle) => {
+    const text = `${title} ${subtitle}`.toLowerCase();
+    const q = query.toLowerCase();
+    
+    // Exact match = perfect score
+    if (text === q || text.includes(q)) return 100;
+    
+    // Check how many words from query appear in result
+    const queryWords = q.split(/\s+/).filter(w => w.length > 0);
+    if (queryWords.length === 0) return 0;
+    
+    const matchedWords = queryWords.filter(word => text.includes(word));
+    const matchPercentage = (matchedWords.length / queryWords.length) * 100;
+    
+    // If multi-word query, require at least 50% of words to match
+    if (queryWords.length > 1 && matchPercentage < 50) return 0;
+    
+    // Proximity bonus: if words appear close together
+    if (queryWords.length > 1) {
+      const firstWordPos = text.indexOf(queryWords[0]);
+      const lastWordPos = text.indexOf(queryWords[queryWords.length - 1]);
+      if (firstWordPos !== -1 && lastWordPos !== -1) {
+        const distance = lastWordPos - firstWordPos;
+        if (distance < 30) return matchPercentage + 20; // bonus for proximity
+      }
+    }
+    
+    return matchPercentage;
+  };
 
   const handleSelectSearchResult = useCallback((result) => {
     setSearchOpen(false);
