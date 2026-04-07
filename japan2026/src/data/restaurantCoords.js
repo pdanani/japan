@@ -48,6 +48,7 @@ export const RESTAURANT_COORDS = {
   'Tsuta': [35.67041, 139.68248],
   'Nata de Cristiano': [35.66726, 139.69130],
   'VIRON Shibuya': [35.66089, 139.69679],
+  'Nintendo TOKYO': [35.6595, 139.6997],
 
   // === Batch 4: Various ===
   'Kagaribi': [35.67210, 139.77427],

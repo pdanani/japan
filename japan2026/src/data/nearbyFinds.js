@@ -78,6 +78,8 @@ export const nearbyFinds = {
     { rank: 546, rating: 3.74, name: "L'Octave -Hayato KOBAYASHI-", cuisine: 'French', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Kita Sando', mapUrl: gmap("L'Octave Hayato Kobayashi Kita Sando") },
     { rank: 724, rating: 3.72, name: 'Bistrot Bar a vin Kodama', cuisine: 'Bistro, French', price: '¥10,000–14,999', dinnerPrice: '¥10,000–14,999', station: 'Shibuya', mapUrl: gmap('Bistrot Kodama Shibuya') },
     { rank: 249, rating: 3.76, name: 'Peruvian Bepoca', cuisine: 'Peruvian, Latin American', price: '¥8,000–9,999', dinnerPrice: '¥8,000–9,999', station: 'Meiji Jingumae', mapUrl: gmap('Peruvian Bepoca Harajuku') },
+    // Nintendo TOKYO - Gaming store/attraction in Shibuya
+    { rank: 999, rating: 4.0, name: 'Nintendo TOKYO', cuisine: 'Gaming, Store', price: '<¥999', station: 'Shibuya', mapUrl: gmap('Nintendo TOKYO Shibuya') },
   ]),
 
   3: withCoords([
