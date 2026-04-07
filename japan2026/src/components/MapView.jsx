@@ -148,6 +148,26 @@ export default function MapViewComponent() {
     }).filter(Boolean);
   }, [savedList]);
 
+  // Build searchable restaurants from full Tabelog list + allTabelogSource when layer is on
+  const searchableRestaurants = useMemo(() => {
+    const restaurants = layers.allTabelog ? allTabelogSource : tabelogList;
+    return restaurants
+      .map((r, i) => {
+        const coord = getTabelogCoord(r);
+        if (!coord) return null;
+        return {
+          id: `tabelog-${i}`,
+          source: 'tabelog',
+          title: r.name || r.title || '',
+          subtitle: r.cuisine || r.tags || '',
+          coord,
+          rating: r.rating || 0,
+          pin: { ...r, coord, kind: 'restaurant', source: 'tabelog' },
+        };
+      })
+      .filter(Boolean);
+  }, [tabelogList, allTabelogSource, layers.allTabelog]);
+
   // All 1200 Tabelog pins (filtered)
   const allTabelogPins = useMemo(() => {
     if (!layers.allTabelog) return [];
@@ -504,17 +524,31 @@ export default function MapViewComponent() {
       const centerLat = center?.lat || 35.6762;
       const centerLng = center?.lng || 139.6503;
 
+      // 1. Search Tabelog restaurants first (prioritize exact/partial matches)
+      const restaurantMatches = searchableRestaurants
+        .filter((item) => {
+          const searchText = `${item.title} ${item.subtitle}`.toLowerCase();
+          return searchText.includes(normalized);
+        })
+        .map((item) => ({
+          ...item,
+          distance: calculateDistance(centerLat, centerLng, item.coord.latitude, item.coord.longitude),
+        }))
+        .sort((a, b) => a.distance - b.distance);
+
+      // 2. Search local itinerary/saved pins
       const localMatches = searchablePins
         .filter((item) => `${item.title} ${item.subtitle}`.toLowerCase().includes(normalized))
         .map((item) => ({
           ...item,
           distance: calculateDistance(centerLat, centerLng, item.coord.latitude, item.coord.longitude),
         }))
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 8);
+        .sort((a, b) => a.distance - b.distance);
 
       if (MAPBOX_TOKEN === 'YOUR_MAPBOX_TOKEN_HERE') {
-        setSearchResults(localMatches);
+        // No token, return local results
+        const allResults = [...restaurantMatches, ...localMatches].slice(0, 8);
+        setSearchResults(allResults);
         return;
       }
 
@@ -522,7 +556,7 @@ export default function MapViewComponent() {
         setIsSearching(true);
         const proximity = `&proximity=${centerLng},${centerLat}`;
         const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=10&types=poi,address,place,neighborhood&country=jp&language=en${proximity}&access_token=${MAPBOX_TOKEN}`,
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=15&types=poi,address,place,neighborhood&country=jp&language=en${proximity}&access_token=${MAPBOX_TOKEN}`,
         );
         const data = await response.json();
         const remote = (data.features || [])
@@ -542,26 +576,22 @@ export default function MapViewComponent() {
           })
           .sort((a, b) => a.distance - b.distance);
 
-        // Merge local and remote, prioritizing local, then sort by distance
-        const allResults = [...localMatches, ...remote]
-          .sort((a, b) => {
-            // Prioritize local results, then by distance
-            if (a.source === 'itinerary' && b.source !== 'itinerary') return -1;
-            if (a.source !== 'itinerary' && b.source === 'itinerary') return 1;
-            return (a.distance || 0) - (b.distance || 0);
-          })
+        // 3. Combine: Tabelog restaurants first, then local pins, then Mapbox results
+        const allResults = [...restaurantMatches, ...localMatches, ...remote]
           .slice(0, 8);
 
         setSearchResults(allResults);
       } catch (error) {
         console.error('Search error:', error);
-        setSearchResults(localMatches);
+        // Fallback to local results if API fails
+        const fallback = [...restaurantMatches, ...localMatches].slice(0, 8);
+        setSearchResults(fallback);
       } finally {
         setIsSearching(false);
       }
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, searchableRestaurants]);
 
   const handleSelectSearchResult = useCallback((result) => {
     setSearchOpen(false);
