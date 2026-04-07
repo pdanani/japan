@@ -8,7 +8,7 @@ import {
 import {
   IconStarFilled, IconBookmark, IconNavigation,
   IconChevronLeft, IconChevronRight, IconRoute, IconTimeline,
-  IconFilter, IconX,
+  IconFilter, IconX, IconSearch,
 } from '@tabler/icons-react';
 import { timeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
@@ -74,6 +74,11 @@ export default function MapViewComponent() {
   const [japaneseOnly, setJapaneseOnly] = useState(false);
   const [cuisineFilter, setCuisineFilter] = useState([]);
   const [cuisineLayout, setCuisineLayout] = useState('grouped');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedSearchPin, setSelectedSearchPin] = useState(null);
 
   const hasActiveFilters = maxPrice < 15000 || minRating !== 'all' || japaneseOnly || cuisineFilter.length > 0 || (layers.allTabelog && mealFilter !== 'all');
   const resetFilters = () => { setMaxPrice(15000); setMinRating('all'); setJapaneseOnly(false); setCuisineFilter([]); setMealFilter('all'); };
@@ -199,6 +204,15 @@ export default function MapViewComponent() {
   // Keep ref in sync so click handler always has current data
   pinsRef.current = allVisiblePins;
 
+  const searchablePins = useMemo(() => allVisiblePins.map((pin) => ({
+    id: pin.key,
+    source: 'itinerary',
+    title: pin.title,
+    subtitle: pin.subtitle,
+    coord: pin.coord,
+    pin,
+  })), [allVisiblePins]);
+
   const pinsGeoJSON = useMemo(() => ({
     type: 'FeatureCollection',
     features: allVisiblePins.map((pin, i) => ({
@@ -243,6 +257,21 @@ export default function MapViewComponent() {
       },
     };
   }, [layers.itinerary, itineraryPins]);
+
+  const searchPinGeoJSON = useMemo(() => {
+    if (!selectedSearchPin?.coord) return { type: 'FeatureCollection', features: [] };
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [selectedSearchPin.coord.longitude, selectedSearchPin.coord.latitude],
+        },
+        properties: {},
+      }],
+    };
+  }, [selectedSearchPin]);
 
   // Init map
   useEffect(() => {
@@ -313,6 +342,16 @@ export default function MapViewComponent() {
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 3,
           'circle-stroke-color': '#facc15',
+        },
+      });
+      map.current.addSource('search-result', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.current.addLayer({
+        id: 'search-result-ring', type: 'circle', source: 'search-result',
+        paint: {
+          'circle-radius': 10,
+          'circle-color': '#ffffff',
+          'circle-stroke-width': 4,
+          'circle-stroke-color': '#1d4ed8',
         },
       });
 
@@ -398,6 +437,12 @@ export default function MapViewComponent() {
     if (src) src.setData(highlightGeoJSON);
   }, [mapReady, highlightGeoJSON]);
 
+  useEffect(() => {
+    if (!map.current || !mapReady) return;
+    const src = map.current.getSource('search-result');
+    if (src) src.setData(searchPinGeoJSON);
+  }, [mapReady, searchPinGeoJSON]);
+
   // Fit map only when day changes (not on layer/filter toggles)
   useEffect(() => {
     if (!map.current || !mapReady) return;
@@ -434,7 +479,123 @@ export default function MapViewComponent() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${pin.coord.latitude},${pin.coord.longitude}`, '_blank');
   };
 
-  const displayPin = carouselMode === 'tabelog' ? activeNonItinPin : carouselPins[activePin];
+  // Calculate distance between two coordinates (in km)
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+      + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+      * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    const timeoutId = setTimeout(async () => {
+      const normalized = query.toLowerCase();
+      const center = map.current?.getCenter();
+      const centerLat = center?.lat || 35.6762;
+      const centerLng = center?.lng || 139.6503;
+
+      const localMatches = searchablePins
+        .filter((item) => `${item.title} ${item.subtitle}`.toLowerCase().includes(normalized))
+        .map((item) => ({
+          ...item,
+          distance: calculateDistance(centerLat, centerLng, item.coord.latitude, item.coord.longitude),
+        }))
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 8);
+
+      if (MAPBOX_TOKEN === 'YOUR_MAPBOX_TOKEN_HERE') {
+        setSearchResults(localMatches);
+        return;
+      }
+
+      try {
+        setIsSearching(true);
+        const proximity = `&proximity=${centerLng},${centerLat}`;
+        const response = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=10&types=poi,address,place,neighborhood&country=jp&language=en${proximity}&access_token=${MAPBOX_TOKEN}`,
+        );
+        const data = await response.json();
+        const remote = (data.features || [])
+          .map((feature) => {
+            const distance = calculateDistance(centerLat, centerLng, feature.center[1], feature.center[0]);
+            return {
+              id: feature.id,
+              source: 'mapbox',
+              title: feature.text || feature.place_name,
+              subtitle: feature.place_name,
+              coord: {
+                latitude: feature.center[1],
+                longitude: feature.center[0],
+              },
+              distance,
+            };
+          })
+          .sort((a, b) => a.distance - b.distance);
+
+        // Merge local and remote, prioritizing local, then sort by distance
+        const allResults = [...localMatches, ...remote]
+          .sort((a, b) => {
+            // Prioritize local results, then by distance
+            if (a.source === 'itinerary' && b.source !== 'itinerary') return -1;
+            if (a.source !== 'itinerary' && b.source === 'itinerary') return 1;
+            return (a.distance || 0) - (b.distance || 0);
+          })
+          .slice(0, 8);
+
+        setSearchResults(allResults);
+      } catch (error) {
+        console.error('Search error:', error);
+        setSearchResults(localMatches);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, searchablePins]);
+
+  const handleSelectSearchResult = useCallback((result) => {
+    setSearchOpen(false);
+    setSearchQuery(result.title);
+    if (result.source === 'itinerary' && result.pin) {
+      if (result.pin.kind === 'itinerary') {
+        setCarouselMode('itinerary');
+        setSelectedPin(null);
+        setActivePin(result.pin.index);
+      } else {
+        const idx = nonItinPins.findIndex(p => p.key === result.pin.key);
+        setCarouselMode('tabelog');
+        setSelectedPin(idx >= 0 ? idx : 0);
+      }
+    }
+    setSelectedSearchPin(result);
+    if (map.current) {
+      map.current.flyTo({
+        center: [result.coord.longitude, result.coord.latitude],
+        zoom: 15,
+        duration: 800,
+      });
+    }
+  }, [nonItinPins]);
+
+  // Display pin from carousel or search result
+  const displayPin = selectedSearchPin 
+    ? {
+        ...selectedSearchPin,
+        color: '#1d4ed8',
+        number: null,
+        kind: 'search',
+      }
+    : (carouselMode === 'tabelog' ? activeNonItinPin : carouselPins[activePin]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 'calc(100dvh - 56px - env(safe-area-inset-top, 0px))', overflow: 'hidden' }}>
@@ -756,11 +917,74 @@ export default function MapViewComponent() {
         )}
       </div>
 
+      <div style={{ position: 'absolute', top: 62, left: 240, right: 200, zIndex: 11 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+          borderRadius: 12, border: `1px solid ${ov.border}`, background: ov.overlay,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+        }}>
+          <IconSearch size={16} color={ov.textDim} />
+          <input
+            value={searchQuery}
+            onFocus={() => setSearchOpen(true)}
+            onChange={(e) => { setSearchQuery(e.currentTarget.value); setSearchOpen(true); }}
+            placeholder="Search POIs, restaurants, stations..."
+            style={{
+              flex: 1, border: 'none', outline: 'none', background: 'transparent',
+              color: ov.text, fontSize: 13, fontWeight: 500,
+            }}
+          />
+          {searchQuery && (
+            <ActionIcon variant="subtle" color="gray" size="sm" onClick={() => { setSearchQuery(''); setSearchResults([]); setSelectedSearchPin(null); }}>
+              <IconX size={14} />
+            </ActionIcon>
+          )}
+        </div>
+        {searchOpen && searchQuery.trim() && (
+          <div style={{
+            marginTop: 6, borderRadius: 12, border: `1px solid ${ov.border}`, background: ov.bg,
+            boxShadow: '0 6px 20px rgba(0,0,0,0.18)', overflow: 'hidden', maxHeight: '300px', overflowY: 'auto',
+          }}>
+            {isSearching && searchResults.length === 0 && (
+              <Text size="xs" c="dimmed" px={12} py={8}>Searching…</Text>
+            )}
+            {!isSearching && searchResults.length === 0 && (
+              <Text size="xs" c="dimmed" px={12} py={8}>No results found</Text>
+            )}
+            {searchResults.map((result) => (
+              <div
+                key={result.id}
+                onClick={() => handleSelectSearchResult(result)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSelectSearchResult(result)}
+                role="button"
+                tabIndex={0}
+                style={{
+                  width: '100%', padding: '10px 12px', textAlign: 'left', borderTop: `1px solid ${ov.border}`,
+                  display: 'grid', gap: 2, cursor: 'pointer', transition: 'background 0.1s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = ov.border}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <Text size="sm" fw={600} lineClamp={1}>
+                  {result.title}
+                  {result.distance && <span style={{ fontSize: 11, fontWeight: 400, color: ov.textDim, marginLeft: 8 }}>
+                    {result.distance.toFixed(1)} km
+                  </span>}
+                </Text>
+                <Text size="xs" c="dimmed" lineClamp={1}>
+                  {result.source === 'itinerary' ? 'In itinerary' : result.subtitle}
+                </Text>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Bottom card + carousel controls — hidden when filter sheet is open */}
       {!showFilters && displayPin && (
         <div style={{ position: 'absolute', bottom: 'env(safe-area-inset-bottom, 12px)', left: 0, right: 0, zIndex: 10, paddingBottom: 4 }}>
-          {/* Carousel arrows */}
-          {(() => {
+          {/* Carousel arrows — hidden for search results */}
+          {displayPin.kind !== 'search' && (() => {
             const list = carouselMode === 'tabelog' ? nonItinPins : carouselPins;
             const idx = carouselMode === 'tabelog' ? selectedPin : activePin;
             if (list.length === 0) return null;
@@ -807,17 +1031,24 @@ export default function MapViewComponent() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0,
                 }}>
-                  {displayPin.number || (displayPin.kind === 'tabelog' ? '★' : '♥')}
+                  {displayPin.number || (displayPin.kind === 'search' ? '🔍' : displayPin.kind === 'tabelog' ? '★' : '♥')}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <Text fw={700} size="sm" truncate>{displayPin.title}</Text>
                   <Text size="xs" c="dimmed" truncate>{displayPin.subtitle}</Text>
                 </div>
-                {carouselMode === 'tabelog' && (
-                  <Tooltip label="Back to itinerary">
+                {(carouselMode === 'tabelog' || displayPin.kind === 'search') && (
+                  <Tooltip label={displayPin.kind === 'search' ? 'Close' : 'Back to itinerary'}>
                     <ActionIcon variant="subtle" color="gray" radius="xl" size="md"
-                      onClick={() => { setCarouselMode('itinerary'); setSelectedPin(null); }}>
-                      <IconChevronLeft size={16} />
+                      onClick={() => {
+                        if (displayPin.kind === 'search') {
+                          setSelectedSearchPin(null);
+                        } else {
+                          setCarouselMode('itinerary');
+                          setSelectedPin(null);
+                        }
+                      }}>
+                      <IconX size={16} />
                     </ActionIcon>
                   </Tooltip>
                 )}
