@@ -561,7 +561,7 @@ export default function MapViewComponent() {
       }
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchablePins]);
+  }, [searchQuery]);
 
   const handleSelectSearchResult = useCallback((result) => {
     setSearchOpen(false);
