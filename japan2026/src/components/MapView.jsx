@@ -591,7 +591,7 @@ export default function MapViewComponent() {
       }
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchableRestaurants]);
+  }, [searchQuery]);
 
   const handleSelectSearchResult = useCallback((result) => {
     setSearchOpen(false);
