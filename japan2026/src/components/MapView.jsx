@@ -556,7 +556,7 @@ export default function MapViewComponent() {
         setIsSearching(true);
         const proximity = `&proximity=${centerLng},${centerLat}`;
         const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=15&types=poi,address,place,neighborhood&country=jp&language=en${proximity}&access_token=${MAPBOX_TOKEN}`,
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=15&types=poi,place,neighborhood,address,locality,region&language=en${proximity}&access_token=${MAPBOX_TOKEN}`,
         );
         const data = await response.json();
         const remote = (data.features || [])
