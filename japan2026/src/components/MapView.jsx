@@ -576,8 +576,8 @@ export default function MapViewComponent() {
               quality,
             };
           })
-          // Only keep results with decent match quality (>30%)
-          .filter((r) => r.quality > 30)
+          // Only keep results with some match quality (>10%) - lowered threshold
+          .filter((r) => r.quality > 10)
           .sort((a, b) => a.distance - b.distance);
 
         // 3. Combine: Tabelog restaurants first, then local pins, then Mapbox results
