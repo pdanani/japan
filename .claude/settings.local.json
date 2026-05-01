@@ -27,7 +27,16 @@
       "Bash(ln -s ../../../shared/data/savedPlaces.js savedPlaces.js)",
       "Bash(npx vite:*)",
       "Bash(git push:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(lsof -i :5173 -sTCP:LISTEN)",
+      "Bash(curl -sS http://localhost:5173/src/components/MapView.jsx -o /tmp/mv.txt -w \"HTTP %{http_code} size=%{size_download}\\\\n\")",
+      "Read(//tmp/**)",
+      "Bash(curl -sS http://localhost:5173/@id/__x00__react-google-maps -o /dev/null -w \"%{http_code}\\\\n\")",
+      "Bash(curl -sS \"http://localhost:5173/node_modules/.vite/deps/@react-google-maps_api.js?v=\" -o /tmp/g.js -w \"HTTP %{http_code} size=%{size_download}\\\\n\")",
+      "Bash(curl -sS http://localhost:5173/ -o /tmp/idx.html -w \"HTTP %{http_code}\\\\n\")",
+      "Read(//private/tmp/**)",
+      "Bash(curl -sS http://localhost:5173/src/data/mapConfig.js)"
     ]
   }
 }
