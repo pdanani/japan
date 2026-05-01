@@ -1,11 +1,45 @@
 import { useState, useMemo } from 'react';
 import {
   TextInput, Title, Text, SimpleGrid, Card, Badge, Group, Anchor,
-  SegmentedControl, Chip, Stack, Tooltip, ActionIcon, Collapse, Divider,
+  Chip, Stack, Tooltip, ActionIcon, Collapse, Divider, UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconSearch, IconMapPin, IconUser, IconExternalLink, IconFilter, IconX } from '@tabler/icons-react';
 import { getCatColor, splitNames } from '../utils';
+
+function PillToggleGroup({ value, onChange, options, color = 'red', size = 'xs' }) {
+  const activeBg = {
+    red: 'var(--mantine-color-red-6)',
+    gray: 'var(--mantine-color-gray-6)',
+  }[color] || `var(--mantine-color-${color}-6)`;
+
+  return (
+    <Group gap={6} wrap="nowrap">
+      {options.map((option) => {
+        const active = value === option.value;
+        return (
+          <UnstyledButton
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            style={{
+              textAlign: 'center',
+              padding: size === 'xs' ? '6px 10px' : '8px 12px',
+              borderRadius: 999,
+              fontSize: size === 'xs' ? 12 : 13,
+              fontWeight: 600,
+              background: active ? activeBg : 'var(--mantine-color-default-hover)',
+              color: active ? '#fff' : 'var(--mantine-color-text)',
+              border: `1px solid ${active ? activeBg : 'var(--mantine-color-default-border)'}`,
+              flex: '0 0 auto',
+            }}
+          >
+            {option.label}
+          </UnstyledButton>
+        );
+      })}
+    </Group>
+  );
+}
 
 export default function Activities({ data }) {
   const [search, setSearch] = useState('');
@@ -72,12 +106,11 @@ export default function Activities({ data }) {
 
             <div>
               <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb={6}>City</Text>
-              <SegmentedControl
+              <PillToggleGroup
                 value={locFilter}
                 onChange={setLocFilter}
-                data={locations}
+                options={locations.map((location) => ({ label: location, value: location }))}
                 size="xs"
-                radius="xl"
                 color="red"
               />
             </div>

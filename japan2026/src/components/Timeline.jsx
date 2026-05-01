@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Timeline as MTimeline, Title, Text, Badge, Group, Card,
-  ThemeIcon, ScrollArea, UnstyledButton,
+  ThemeIcon, UnstyledButton,
 } from '@mantine/core';
 import {
   IconMapPin, IconCalendar, IconCoffee, IconShoppingCart,
@@ -79,7 +79,7 @@ export default function TimelineSection({ timeline, onNearbyRecs }) {
       </Group>
 
       {/* Day selector tabs */}
-      <ScrollArea type="never" mb="lg">
+      <div style={{ overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
         <Group gap={8} wrap="nowrap">
           {timeline.map(d => {
             const active = d.day === selected;
@@ -109,7 +109,7 @@ export default function TimelineSection({ timeline, onNearbyRecs }) {
             );
           })}
         </Group>
-      </ScrollArea>
+      </div>
 
       {/* Selected day detail */}
       {day && (

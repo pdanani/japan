@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   TextInput, Title, Text, SimpleGrid, Card, Badge, Group, Anchor, Switch,
-  SegmentedControl, Chip, Divider, Stack, Tooltip, ActionIcon, Collapse, Slider, ScrollArea,
+  Chip, Divider, Stack, Tooltip, ActionIcon, Collapse, Slider, UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -16,6 +16,42 @@ import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
 import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
 
 const INITIAL_SHOW = 50;
+
+function PillToggleGroup({ value, onChange, options, color = 'red', fullWidth = false, size = 'sm' }) {
+  const activeBg = {
+    orange: 'var(--mantine-color-orange-6)',
+    yellow: 'var(--mantine-color-yellow-6)',
+    red: 'var(--mantine-color-red-6)',
+    gray: 'var(--mantine-color-gray-6)',
+  }[color] || `var(--mantine-color-${color}-6)`;
+
+  return (
+    <Group gap={6} grow={fullWidth} wrap="nowrap">
+      {options.map((option) => {
+        const active = value === option.value;
+        return (
+          <UnstyledButton
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            style={{
+              textAlign: 'center',
+              padding: size === 'xs' ? '6px 10px' : '8px 12px',
+              borderRadius: 999,
+              fontSize: size === 'xs' ? 12 : 13,
+              fontWeight: 600,
+              background: active ? activeBg : 'var(--mantine-color-default-hover)',
+              color: active ? '#fff' : 'var(--mantine-color-text)',
+              border: `1px solid ${active ? activeBg : 'var(--mantine-color-default-border)'}`,
+              flex: fullWidth ? 1 : '0 0 auto',
+            }}
+          >
+            {option.label}
+          </UnstyledButton>
+        );
+      })}
+    </Group>
+  );
+}
 
 export default function FoodMenu({ data }) {
   const [tab, setTab] = useState('tabelog');
@@ -116,26 +152,25 @@ export default function FoodMenu({ data }) {
         </div>
       </Group>
 
-      <SegmentedControl
-        value={tab}
-        onChange={setTab}
-        fullWidth
-        size="sm"
-        radius="xl"
-        color="red"
-        mb="lg"
-        data={[
+      <div style={{ marginBottom: 16 }}>
+        <PillToggleGroup
+          value={tab}
+          onChange={setTab}
+          fullWidth
+          color="red"
+          options={[
           { label: '⭐ Tabelog', value: 'tabelog' },
           { label: `🍽 Our Picks (${data.length})`, value: 'picks' },
-        ]}
-      />
+          ]}
+        />
+      </div>
 
       {/* ========== TABELOG TAB ========== */}
       {tab === 'tabelog' && (
         <>
           <Card withBorder radius="md" p="md" mb="lg">
             <Stack gap="sm">
-              <SegmentedControl
+              <PillToggleGroup
                 value={tabelogCity}
                 onChange={(value) => {
                   setTabelogCity(value);
@@ -145,16 +180,14 @@ export default function FoodMenu({ data }) {
                   setTSearch('');
                   setShowAll(false);
                 }}
-                size="sm"
-                radius="xl"
                 color="orange"
-                data={[
+                options={[
                   { label: 'Tokyo', value: 'Tokyo' },
                   { label: 'Osaka', value: 'Osaka' },
                 ]}
               />
 
-              <SegmentedControl
+              <PillToggleGroup
                 value={mealFilter}
                 onChange={(value) => {
                   setMealFilter(value);
@@ -163,10 +196,8 @@ export default function FoodMenu({ data }) {
                   setTSearch('');
                   setShowAll(false);
                 }}
-                size="sm"
-                radius="xl"
                 color="yellow"
-                data={[
+                options={[
                   { label: 'All', value: 'all' },
                   { label: 'Lunch', value: 'lunch' },
                   { label: 'Dinner', value: 'dinner' },
@@ -197,11 +228,12 @@ export default function FoodMenu({ data }) {
 
               <Group gap={6} wrap="nowrap">
                 <Text size="xs" fw={500} c="dimmed" style={{ flexShrink: 0 }}>Rating:</Text>
-                <SegmentedControl
-                  size="xs" radius="xl" color="yellow"
+                <PillToggleGroup
                   value={minRating}
                   onChange={(v) => { setMinRating(v); setShowAll(false); }}
-                  data={[
+                  size="xs"
+                  color="yellow"
+                  options={[
                     { label: 'All', value: 'all' },
                     { label: '4.0+', value: '4.0' },
                     { label: '3.9+', value: '3.9' },
@@ -225,20 +257,19 @@ export default function FoodMenu({ data }) {
                 styles={{ label: { fontSize: 12, color: 'var(--mantine-color-dimmed)', paddingLeft: 6 } }}
               />
 
-              <SegmentedControl
+              <PillToggleGroup
                 value={cuisineLayout}
                 onChange={setCuisineLayout}
                 size="xs"
-                radius="xl"
                 color="orange"
-                data={[
+                options={[
                   { label: 'Grouped', value: 'grouped' },
                   { label: 'Flat', value: 'flat' },
                 ]}
               />
 
               {cuisineLayout === 'flat' ? (
-                <ScrollArea type="never">
+                <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
                   <Group gap={4} wrap="nowrap">
                     {cuisineTags.map(([key, label]) => (
                       <Badge
@@ -257,7 +288,7 @@ export default function FoodMenu({ data }) {
                       </Badge>
                     ))}
                   </Group>
-                </ScrollArea>
+                </div>
               ) : (
                 <Stack gap={8}>
                   {cuisineSections.map((section) => (
@@ -377,9 +408,13 @@ export default function FoodMenu({ data }) {
                 />
                 <div>
                   <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb={6}>City</Text>
-                  <SegmentedControl
-                    value={locFilter} onChange={setLocFilter}
-                    data={locations} size="xs" radius="xl" fullWidth color="red"
+                  <PillToggleGroup
+                    value={locFilter}
+                    onChange={setLocFilter}
+                    options={locations.map((location) => ({ label: location, value: location }))}
+                    size="xs"
+                    fullWidth
+                    color="red"
                   />
                 </div>
                 <div>
