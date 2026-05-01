@@ -48,7 +48,6 @@ export const RESTAURANT_COORDS = {
   'Tsuta': [35.67041, 139.68248],
   'Nata de Cristiano': [35.66726, 139.69130],
   'VIRON Shibuya': [35.66089, 139.69679],
-  'Nintendo TOKYO': [35.6595, 139.6997],
 
   // === Batch 4: Various ===
   'Kagaribi': [35.67210, 139.77427],
@@ -482,4 +481,61 @@ export const ITINERARY_COORDS = {
   'OMO3': [35.6760, 139.7359],
   'Kitamura Kamera': [35.6893, 139.6975],
   'Flight home': [35.5533, 139.7811],
+
+  // === PB sync 2026-04-30: Tabelog-confirmed adds ===
+  'Cafe Aaliya': [35.6905, 139.7048],         // Shinjuku Sanchome, Day 4 — Tabelog match
+  'Pizza Marumo': [35.6453, 139.7085],        // Ebisu, Day 5 — Tabelog match
+  'Yakitori Shokudo': [34.70272, 135.51188],  // Ogimachi, Osaka, Day 6 — Tabelog match
+  'Daikoku': [34.66821, 135.49999],           // Namba, Osaka, Day 7 — Tabelog match (note: activity also mentions Chitose Udon as alt)
+  'Sushi Nakamoto': [34.66459, 135.50522],    // Kintetsu Nippombashi, Osaka, Day 7 — Tabelog match
+
+  // === PB sync 2026-04-30: Google Places (New) confirmed adds ===
+  'Tsujihan': [35.68072, 139.77158],                          // Day 1 — Google Places match (rating=4.4, 5115)
+  'Little Nap Coffee Stand': [35.67209, 139.69059],           // Day 2 — Google Places match (rating=4.5, 1114)
+  'Musée du Chocolat Théobroma': [35.66653, 139.69177],       // Day 2 — Google Places match (rating=4.0, 445)
+  'KOFFEE MAMEYA': [35.66837, 139.71089],                     // Day 2 — Google Places match (rating=4.6, 1840)
+  'Loopwheeler': [35.67481, 139.70633],                       // Day 2 — Google Places match (rating=4.6, 222)
+  'The Flat Head': [35.6709646, 139.7076539],                 // Day 2 — Harajuku/Jingumae denim shop (rating=4.6, 93)
+  "THE REAL McCOY'S": [35.6662406, 139.7030061],              // Day 2 — Jingumae vintage repro shop (rating=4.0, 256)
+  'かき氷ワインバーAO+': [35.67459, 139.73785],               // Day 2 — Google Places match (rating=4.7, 90)
+  'Tokyo Curry Pan': [35.71162, 139.79599],                   // Day 3 — Google Places match (rating=4.6, 394)
+  'Toyokawa-inari Tokyo-betsuin': [35.67641, 139.73285],      // Day 3 — Google Places match (rating=4.5, 4935)
+  'MENDOKORO TOMO': [35.67481, 139.73568],                    // Day 3 — Google Places match (rating=4.3, 237)
+  'Nogi Shrine': [35.66882, 139.72796],                       // Day 3 — Google Places match (rating=4.4, 4562)
+  'Hinokicho Park': [35.66691, 139.73221],                    // Day 3 — Google Places match (rating=4.3, 2157)
+  'Taiyaki-ya Oyoge': [35.66363, 139.73043],                  // Day 3 — Google Places match (rating=4.1, 286)
+  'Akasaka Hikawa Shrine': [35.66825, 139.73552],             // Day 3 — Google Places match (rating=4.4, 3008)
+  'ドンキの時間': [35.69010, 139.70200],                      // Day 4 — Google Places match (Don Quijote Shinjuku Tonanguchi, rating=3.7, 4855)
+  'BEAMS Shinjuku': [35.69186, 139.70099],                    // Day 4 — Google Places match (rating=4.2, 1085)
+  'Jippō Sushi': [35.64868, 139.67791],                       // Day 5 — Google Places match (rating=4.5, 73)
+  'Starbucks Reserve': [35.64926, 139.69259],                 // Day 5 — Google Places match (Roastery Nakameguro, rating=4.5, 13368)
+  'A9 Ebisu': [35.64733, 139.70735],                          // Day 5 — Google Places match (rating=4.2, 87)
+  'Bar 盤天': [35.64649, 139.70865],                          // Day 5 — Google Places match (rating=3.8, 52)
+  'Hotel Hankyu Respire': [34.70470, 135.49615],              // Day 6 / Day 11 — Google Places match (rating=4.3, 4158)
+  'Ōgimachi Park': [34.70403, 135.50904],                     // Day 6 — Google Places match (rating=3.9, 4010)
+  'Sakai Ichimonji Mitsuhide': [34.66351, 135.50360],         // Day 7 — Google Places match (rating=4.7, 304)
+  'LiLo Coffee Roasters': [34.67407, 135.49803],              // Day 7 — Google Places match (rating=4.8, 2366)
+  'CANELÉ du JAPON': [34.67664, 135.50651],                   // Day 7 — Google Places match (Nagahoribashi Store, rating=4.3, 224)
+  'Torebon': [34.67039, 135.49931],                           // Day 7 — Google Places match (rating=4.5, 259)
+  'Three Tides Tattoo': [34.67052, 135.49588],                // Day 7 — Google Places match (rating=4.3, 206)
+  'Ginkaku-ji': [35.02702, 135.79821],                        // Day 8 — Google Places match (rating=4.5, 17075)
+  'Ochanoi Well': [35.02709, 135.79906],                      // Day 8 — Google Places match (rating=4.4, 26)
+  'Nishiki Market': [35.00503, 135.76472],                    // Day 8 — Google Places match (rating=4.3, 51267)
+  'Yasaka Shrine': [35.00366, 135.77855],                     // Day 8 — Google Places match (rating=4.4, 32467)
+  'Rintei': [34.96983, 135.77636],                            // Day 9 — Google Places match (林亭, tea house at Fushimi Inari approach, rating=4.6, 20)
+  'Men-ya Inoichi': [35.00133, 135.76696],                    // Day 9 — Google Places match (rating=4.4, 3781)
+  'Kiyomizu-dera': [34.99467, 135.78466],                     // Day 9 — Google Places match (rating=4.6, 68755)
+  'Craft Gallery Art Eiran': [34.99524, 135.77975],           // Day 9 — Google Places match (rating=5.0, 8)
+  'Kyoto Ceramic Center': [34.99496, 135.77659],              // Day 9 — Google Places match (rating=4.3, 268)
+  'Söt Coffee Kyoto Shichijo': [34.99170, 135.76952],         // Day 9 — Google Places match (rating=4.8, 815)
+  'Shōseien Garden': [34.99134, 135.76314],                   // Day 9 — Google Places match (rating=4.2, 2830)
+  'Kyoto Beer Lab': [34.99066, 135.76569],                    // Day 9 — Google Places match (rating=4.7, 1656)
+  'Honke Daiichi Asahi': [34.98670, 135.76250],               // Day 9 — Google Places match (rating=4.0, 8909)
+  'Higashi Hongan-ji': [34.99095, 135.75848],                 // Day 9 — Google Places match (rating=4.5, 12447)
+  'Fish Market Tsukiji': [35.66477, 139.77025],               // Day 12 — Google Places match (rating=4.2, 55566)
+  'Glitch Coffee and Roasters GINZA': [35.66892, 139.76863],  // Day 12 / Day 13 — Google Places match (rating=4.3, 1316)
+  'Kita-no-maru Park': [35.69220, 139.75056],                 // Day 13 — Google Places match (rating=4.2, 3731)
+  'Tokyo Daijingu': [35.69999, 139.74689],                    // Day 13 — Google Places match (rating=4.4, 12110)
+  'Tsukudo Shrine': [35.696066, 139.749981],                  // Day 13 — 1-14-21 Kudankita, Chiyoda — confirmed by user (replaced incorrect Tsukudo Hachiman match)
+  'GLITCH COFFEE & ROASTERS': [35.69374, 139.76130],          // Day 13 — Google Places match (Kanda/Jimbocho main shop, rating=4.4, 2283)
 };
