@@ -13,6 +13,7 @@
     "@emotion/react": "^11.14.0",
     "@mantine/core": "^8.3.18",
     "@mantine/hooks": "^8.3.18",
+    "@react-google-maps/api": "^2.20.8",
     "@tabler/icons-react": "^3.40.0",
     "mapbox-gl": "^3.20.0",
     "papaparse": "^5.5.3",

@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import {
-  Text, Badge, Group, Card, ScrollArea, UnstyledButton, ActionIcon, Tooltip,
+  GoogleMap,
+  useJsApiLoader,
+  Polyline,
+  Circle,
+} from '@react-google-maps/api';
+import {
+  Text, Badge, Group, Card, UnstyledButton, ActionIcon, Tooltip,
   Switch, Slider,
 } from '@mantine/core';
 import {
@@ -16,7 +20,7 @@ import { getPlacesForDay } from '../data/savedPlaces';
 import {
   getScheduleCoord, getTabelogCoord, getSavedPlaceCoord, getDayCenter,
 } from '../data/coords';
-import { MAPBOX_TOKEN } from '../data/mapConfig';
+import { MAP_PROVIDER, GOOGLE_MAPS_API_KEY, GOOGLE_MAP_ID } from '../data/mapConfig';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
 import { tabelogDinnerAll as tabelogTokyoDinnerAll } from '../data/tabelogDinnerAll';
 import { tabelogOsakaAll } from '../data/tabelogOsakaAll';
@@ -24,7 +28,29 @@ import { tabelogOsakaLunchAll } from '../data/tabelogOsakaLunchAll';
 import { tabelogOsakaDinnerAll } from '../data/tabelogOsakaDinnerAll';
 import { extractCuisineTags, getMealDatasets, groupCuisineTags, matchesJapaneseOnly, normalizeCuisineTags } from '../utils';
 
-mapboxgl.accessToken = MAPBOX_TOKEN;
+// Module-level so `useJsApiLoader` sees a stable identity (fixes the "LoadScript reloaded
+// unintentionally" warning). `marker` is required for AdvancedMarkerElement; `places` is for
+// the Place.searchByText autocomplete.
+const GOOGLE_MAPS_LIBRARIES = ['places', 'marker'];
+const GOOGLE_MAPS_LOADER_ID = 'japan2026-google-maps-script';
+// Stable initial camera. `<GoogleMap center>` is a controlled prop in @react-google-maps/api —
+// passing a fresh object each render snaps the camera back, overriding imperative panTo().
+// Keep this as a module-level const; per-day fitting is done imperatively via mapRef.
+const INITIAL_CENTER = { lat: 35.6762, lng: 139.6503 }; // Tokyo
+const INITIAL_ZOOM = 12;
+// Resolved Map ID for <GoogleMap mapId>. AdvancedMarkerElement requires a non-empty mapId.
+// Fall back to Google's DEMO_MAP_ID for dev so markers still render. The user should create a
+// real Map ID at https://console.cloud.google.com/google/maps-apis/studio/maps and put it in
+// VITE_GOOGLE_MAP_ID — until then the demo ID works but is rate-limited and shows default style.
+const RESOLVED_MAP_ID = GOOGLE_MAP_ID || 'DEMO_MAP_ID';
+if (!GOOGLE_MAP_ID && typeof console !== 'undefined') {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[MapView] VITE_GOOGLE_MAP_ID is unset — using DEMO_MAP_ID. ' +
+      'Create a Map ID at https://console.cloud.google.com/google/maps-apis/studio/maps ' +
+      'and add VITE_GOOGLE_MAP_ID=<id> to japan2026/.env to get custom styling and remove this warning.',
+  );
+}
 
 function parsePrice(p) {
   if (!p) return 0;
@@ -47,6 +73,88 @@ const TYPE_CONFIG = {
   activity: { color: '#ca8a04', label: 'Activity' },
 };
 
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+    * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function tokenizeSearch(value) {
+  return value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+}
+
+function scoreSearchText(query, ...values) {
+  const q = query.toLowerCase().trim();
+  const text = values.join(' ').toLowerCase().trim();
+  if (!q || !text) return 0;
+  if (text === q) return 200;
+  if (text.startsWith(q)) return 140;
+  if (text.includes(q)) return 120;
+
+  const words = tokenizeSearch(q);
+  if (words.length === 0) return 0;
+  const matchedWords = words.filter((word) => text.includes(word));
+  if (matchedWords.length !== words.length) return 0;
+  return 80 + matchedWords.length * 5;
+}
+
+// Place is the new Places API class (google.maps.places.Place). The legacy PlacesService /
+// PlacesServiceStatus surface was deprecated for new customers on 2025-03-01.
+// place.displayName is a {text,languageCode} object; place.location is a LatLng with
+// .lat()/.lng() methods; id replaces place_id.
+function getPlaceName(place) {
+  if (!place) return '';
+  const dn = place.displayName;
+  if (typeof dn === 'string') return dn;
+  if (dn && typeof dn === 'object' && typeof dn.text === 'string') return dn.text;
+  return '';
+}
+
+function getPlaceLatLng(place) {
+  const loc = place?.location;
+  if (!loc) return null;
+  if (typeof loc.lat === 'function' && typeof loc.lng === 'function') {
+    return { lat: loc.lat(), lng: loc.lng() };
+  }
+  if (typeof loc.lat === 'number' && typeof loc.lng === 'number') {
+    return { lat: loc.lat, lng: loc.lng };
+  }
+  return null;
+}
+
+function isJapanGooglePlace(place) {
+  if (!place) return false;
+  if (!getPlaceLatLng(place)) return false;
+  const address = place.formattedAddress || '';
+  const name = getPlaceName(place);
+  const text = `${name} ${address}`.toLowerCase();
+  return text.includes('japan') || text.includes('tokyo') || text.includes('osaka') || text.includes('kyoto');
+}
+
+function calculateMatchQuality(query, place) {
+  const q = query.toLowerCase().trim();
+  const name = getPlaceName(place).toLowerCase();
+  const address = (place.formattedAddress || '').toLowerCase();
+  const types = (place.types || []).join(' ').toLowerCase();
+  const text = `${name} ${address} ${types}`;
+
+  if (!q || !text) return 0;
+  if (text === q) return 200;
+  if (text.startsWith(q)) return 140;
+  if (text.includes(q)) return 120;
+
+  const words = tokenizeSearch(q);
+  if (words.length === 0) return 0;
+  const matchedWords = words.filter((word) => text.includes(word));
+  if (matchedWords.length !== words.length) return 0;
+  return 80 + matchedWords.length * 5;
+}
+
 export default function MapViewComponent() {
   const isDark = document.querySelector('[data-theme="dark"]') !== null;
   const ov = {
@@ -56,9 +164,23 @@ export default function MapViewComponent() {
     border: isDark ? '#2c2c2e' : '#e5e7eb',
     overlay: isDark ? 'rgba(17,17,17,0.92)' : 'rgba(255,255,255,0.92)',
   };
-  const mapContainer = useRef(null);
-  const map = useRef(null);
+
+  // useJsApiLoader is the singleton-style loader — it dedupes across remounts (the MapView
+  // component unmounts/remounts every time the user toggles the Map tab in App.jsx) so we no
+  // longer get "LoadScript has been reloaded unintentionally" warnings.
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: GOOGLE_MAPS_LOADER_ID,
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: GOOGLE_MAPS_LIBRARIES,
+  });
+
+  const mapRef = useRef(null);
   const pinsRef = useRef([]); // always-current reference to allVisiblePins
+  const searchAbortRef = useRef(null);
+  const lastRemoteSearchKeyRef = useRef('');
+  // Imperatively-managed AdvancedMarkerElement instances, keyed by pin.key so we can diff
+  // create/update/destroy across renders without mounting JSX <Marker> children.
+  const advancedMarkersRef = useRef(new Map());
   const [selected, setSelected] = useState(1);
   const [activePin, setActivePin] = useState(0);
   const [selectedPin, setSelectedPin] = useState(null); // index into tabelogPins, or null
@@ -150,7 +272,7 @@ export default function MapViewComponent() {
 
   // Build searchable restaurants from full Tabelog list + allTabelogSource when layer is on
   const searchableRestaurants = useMemo(() => {
-    const restaurants = layers.allTabelog ? allTabelogSource : tabelogList;
+    const restaurants = allTabelogSource;
     return restaurants
       .map((r, i) => {
         const coord = getTabelogCoord(r);
@@ -166,7 +288,7 @@ export default function MapViewComponent() {
         };
       })
       .filter(Boolean);
-  }, [tabelogList, allTabelogSource, layers.allTabelog]);
+  }, [allTabelogSource]);
 
   // All 1200 Tabelog pins (filtered)
   const allTabelogPins = useMemo(() => {
@@ -222,275 +344,185 @@ export default function MapViewComponent() {
   const nonItinPins = useMemo(() => allVisiblePins.filter(p => p.kind !== 'itinerary'), [allVisiblePins]);
 
   // Keep ref in sync so click handler always has current data
-  pinsRef.current = allVisiblePins;
+  useEffect(() => {
+    pinsRef.current = allVisiblePins;
+  }, [allVisiblePins]);
 
   const searchablePins = useMemo(() => allVisiblePins.map((pin) => ({
     id: pin.key,
-    source: 'itinerary',
+    source: pin.kind,
     title: pin.title,
     subtitle: pin.subtitle,
     coord: pin.coord,
     pin,
   })), [allVisiblePins]);
 
-  const pinsGeoJSON = useMemo(() => ({
-    type: 'FeatureCollection',
-    features: allVisiblePins.map((pin, i) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [pin.coord.longitude, pin.coord.latitude],
-      },
-      properties: {
-        index: i,
-        kind: pin.kind,
-        label: pin.number ? String(pin.number) : (pin.kind === 'tabelog' ? '★' : '♥'),
-        color: pin.color,
-        isActive: (pin.kind === 'itinerary' && pin.index === activePin),
-      },
-    })),
-  }), [allVisiblePins, activePin]);
-
   // The currently displayed non-itinerary pin (if in tabelog mode)
   const activeNonItinPin = carouselMode === 'tabelog' && selectedPin != null ? nonItinPins[selectedPin] : null;
 
-  // Separate highlight GeoJSON — only rebuilds when selectedPin changes
-  const highlightGeoJSON = useMemo(() => {
-    if (!activeNonItinPin) return { type: 'FeatureCollection', features: [] };
-    return {
-      type: 'FeatureCollection',
-      features: [{
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [activeNonItinPin.coord.longitude, activeNonItinPin.coord.latitude] },
-        properties: { color: activeNonItinPin.color },
-      }],
-    };
-  }, [activeNonItinPin]);
-
-  const routeGeoJSON = useMemo(() => {
-    if (!layers.itinerary || itineraryPins.length < 2) return null;
-    return {
-      type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: itineraryPins.map(p => [p.coord.longitude, p.coord.latitude]),
-      },
-    };
+  const routePath = useMemo(() => {
+    if (!layers.itinerary || itineraryPins.length < 2) return [];
+    return itineraryPins.map(p => ({ lat: p.coord.latitude, lng: p.coord.longitude }));
   }, [layers.itinerary, itineraryPins]);
 
-  const searchPinGeoJSON = useMemo(() => {
-    if (!selectedSearchPin?.coord) return { type: 'FeatureCollection', features: [] };
-    return {
-      type: 'FeatureCollection',
-      features: [{
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [selectedSearchPin.coord.longitude, selectedSearchPin.coord.latitude],
-        },
-        properties: {},
-      }],
-    };
-  }, [selectedSearchPin]);
-
-  // Init map
-  useEffect(() => {
-    if (map.current || !mapContainer.current) return;
-    const dayCenter = day ? getDayCenter(day) : { latitude: 35.6762, longitude: 139.6503 };
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
-      center: [dayCenter.longitude, dayCenter.latitude],
-      zoom: 13,
-    });
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    map.current.addControl(new mapboxgl.GeolocateControl({
-      positionOptions: { enableHighAccuracy: true },
-      trackUserLocation: true,
-    }), 'top-right');
-
-    map.current.on('load', () => {
-      // Route glow layer
-      map.current.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.current.addLayer({
-        id: 'route-glow', type: 'line', source: 'route',
-        paint: { 'line-color': 'rgba(185,28,28,0.12)', 'line-width': 10 },
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-      });
-      map.current.addLayer({
-        id: 'route-line', type: 'line', source: 'route',
-        paint: { 'line-color': '#b91c1c', 'line-width': 3.5 },
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-      });
-
-      // Pin layers — circle + label
-      map.current.addSource('pins', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      // Base circles — itinerary pins large, tabelog/saves smaller
-      map.current.addLayer({
-        id: 'pins-circle', type: 'circle', source: 'pins',
-        paint: {
-          'circle-radius': [
-            'case',
-            ['get', 'isActive'], 20,
-            ['==', ['get', 'kind'], 'itinerary'], 16,
-            10,
-          ],
-          'circle-color': ['get', 'color'],
-          'circle-stroke-width': ['case', ['get', 'isActive'], 3, 1.5],
-          'circle-stroke-color': ['case', ['get', 'isActive'], '#facc15', '#ffffff'],
-        },
-      });
-      // Labels — all pins get their label (numbers for itinerary, ★ for tabelog, ♥ for saves)
-      map.current.addLayer({
-        id: 'pins-label', type: 'symbol', source: 'pins',
-        layout: {
-          'text-field': ['get', 'label'],
-          'text-size': ['case', ['==', ['get', 'kind'], 'itinerary'], 12, 8],
-          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-          'text-allow-overlap': true,
-          'icon-allow-overlap': true,
-        },
-        paint: { 'text-color': '#ffffff' },
-      });
-
-      // Highlight ring — separate source, only for selected tabelog/saved pin
-      map.current.addSource('highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.current.addLayer({
-        id: 'highlight-ring', type: 'circle', source: 'highlight',
-        paint: {
-          'circle-radius': 14,
-          'circle-color': ['get', 'color'],
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#facc15',
-        },
-      });
-      map.current.addSource('search-result', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.current.addLayer({
-        id: 'search-result-ring', type: 'circle', source: 'search-result',
-        paint: {
-          'circle-radius': 10,
-          'circle-color': '#ffffff',
-          'circle-stroke-width': 4,
-          'circle-stroke-color': '#1d4ed8',
-        },
-      });
-
-      // Click handler — show pin in bottom card (uses ref for current data)
-      map.current.on('click', 'pins-circle', (e) => {
-        const props = e.features?.[0]?.properties;
-        if (!props) return;
-
-        const pin = pinsRef.current[props.index];
-        if (!pin) return;
-
-        if (pin.kind === 'itinerary') {
-          setActivePin(pin.index);
-          setCarouselMode('itinerary');
-          setSelectedPin(null);
-          const currentZoom = map.current.getZoom();
-          map.current.flyTo({
-            center: e.features[0].geometry.coordinates,
-            zoom: Math.max(currentZoom, 15),
-            duration: 600,
-          });
-        } else {
-          // Find index in the non-itinerary visible pins list
-          const nonItinPins = pinsRef.current.filter(p => p.kind !== 'itinerary');
-          const idx = nonItinPins.findIndex(p => p.key === pin.key);
-          setSelectedPin(idx >= 0 ? idx : 0);
-          setCarouselMode('tabelog');
-        }
-      });
-      map.current.on('mouseenter', 'pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer'; });
-      map.current.on('mouseleave', 'pins-circle', () => { map.current.getCanvas().style.cursor = ''; });
-
-      setMapReady(true);
-    });
-
-    return () => { map.current?.remove(); map.current = null; };
+  // Map ready callback
+  const onMapLoad = useCallback((mapInstance) => {
+    mapRef.current = mapInstance;
+    setMapReady(true);
   }, []);
 
-  // Swap map style when dark mode changes
-  const prevDarkRef = useRef(isDark);
+  // Imperatively manage AdvancedMarkerElement instances. Replaces the deprecated
+  // google.maps.Marker (used by <Marker> from @react-google-maps/api). We diff against
+  // advancedMarkersRef.current so each render creates/updates/removes only what changed.
+  // Click handlers read from pinsRef so they always see the latest pin list.
   useEffect(() => {
-    if (!map.current || !mapReady || isDark === prevDarkRef.current) return;
-    prevDarkRef.current = isDark;
-    const newStyle = isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
-    map.current.setStyle(newStyle);
-    // Re-add sources and layers after style loads
-    map.current.once('style.load', () => {
-      // Route
-      map.current.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.current.addLayer({ id: 'route-glow', type: 'line', source: 'route', paint: { 'line-color': 'rgba(185,28,28,0.12)', 'line-width': 10 }, layout: { 'line-join': 'round', 'line-cap': 'round' } });
-      map.current.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#b91c1c', 'line-width': 3.5 }, layout: { 'line-join': 'round', 'line-cap': 'round' } });
-      // Pins
-      map.current.addSource('pins', { type: 'geojson', data: pinsGeoJSON });
-      map.current.addLayer({ id: 'pins-circle', type: 'circle', source: 'pins', paint: { 'circle-radius': ['case', ['get', 'isActive'], 20, ['==', ['get', 'kind'], 'itinerary'], 16, 10], 'circle-color': ['get', 'color'], 'circle-stroke-width': ['case', ['get', 'isActive'], 3, 1.5], 'circle-stroke-color': ['case', ['get', 'isActive'], '#facc15', '#ffffff'] } });
-      map.current.addLayer({ id: 'pins-label', type: 'symbol', source: 'pins', layout: { 'text-field': ['get', 'label'], 'text-size': ['case', ['==', ['get', 'kind'], 'itinerary'], 12, 8], 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'icon-allow-overlap': true }, paint: { 'text-color': '#ffffff' } });
-      map.current.addSource('highlight', { type: 'geojson', data: highlightGeoJSON });
-      map.current.addLayer({ id: 'highlight-ring', type: 'circle', source: 'highlight', paint: { 'circle-radius': 14, 'circle-color': ['get', 'color'], 'circle-stroke-width': 3, 'circle-stroke-color': '#facc15' } });
-      // Update with current data
-      const routeSrc = map.current.getSource('route');
-      if (routeSrc) routeSrc.setData(showRoute && routeGeoJSON ? routeGeoJSON : { type: 'FeatureCollection', features: [] });
+    if (!mapReady || !mapRef.current || typeof window === 'undefined') return;
+    const gm = window.google?.maps;
+    if (!gm?.marker?.AdvancedMarkerElement) return;
+
+    const { AdvancedMarkerElement, PinElement } = gm.marker;
+    const map = mapRef.current;
+    const existing = advancedMarkersRef.current;
+    const nextKeys = new Set();
+
+    const buildContent = (pin) => {
+      // Custom HTML content preserves the existing numbered-circle look (PinElement's glyph
+      // is anchored differently and can't reproduce the centered numeral with a white border).
+      const isActiveItin = pin.kind === 'itinerary' && pin.index === activePin;
+      const size = isActiveItin ? 28 : 24;
+      const glyph = pin.number != null
+        ? String(pin.number)
+        : pin.kind === 'tabelog'
+          ? '★'
+          : '♥';
+      const div = document.createElement('div');
+      div.style.width = `${size}px`;
+      div.style.height = `${size}px`;
+      div.style.borderRadius = '50%';
+      div.style.background = pin.color;
+      div.style.border = '3px solid #ffffff';
+      div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.35)';
+      div.style.display = 'flex';
+      div.style.alignItems = 'center';
+      div.style.justifyContent = 'center';
+      div.style.color = '#ffffff';
+      div.style.fontFamily = 'Arial, sans-serif';
+      div.style.fontWeight = '700';
+      div.style.fontSize = `${Math.max(10, Math.round(size * 0.45))}px`;
+      div.style.lineHeight = '1';
+      div.style.cursor = 'pointer';
+      div.style.transform = 'translateY(0)'; // anchor center via gmpDraggable=false default
+      div.textContent = glyph;
+      return div;
+    };
+
+    // Reference PinElement to silence unused-import warnings; reserved for future use if we
+    // ever want to drop the custom DOM and use the canonical pin shape instead.
+    void PinElement;
+
+    pinsRef.current.forEach((pin) => {
+      nextKeys.add(pin.key);
+      const position = { lat: pin.coord.latitude, lng: pin.coord.longitude };
+      let entry = existing.get(pin.key);
+      if (!entry) {
+        const content = buildContent(pin);
+        const marker = new AdvancedMarkerElement({
+          map,
+          position,
+          content,
+          title: pin.title || '',
+        });
+        const listener = marker.addListener('gmp-click', () => {
+          // Look up the pin from pinsRef at click time — by-key resolution survives reorders.
+          const current = pinsRef.current.find((p) => p.key === pin.key);
+          if (!current) return;
+          if (current.kind === 'itinerary') {
+            setActivePin(current.index);
+            setCarouselMode('itinerary');
+            setSelectedPin(null);
+          } else {
+            const nonItin = pinsRef.current.filter((p) => p.kind !== 'itinerary');
+            const idx = nonItin.findIndex((p) => p.key === current.key);
+            setSelectedPin(idx >= 0 ? idx : 0);
+            setCarouselMode('tabelog');
+          }
+        });
+        entry = { marker, listener, color: pin.color, glyphKey: `${pin.number ?? pin.kind}`, isActiveItin: pin.kind === 'itinerary' && pin.index === activePin };
+        existing.set(pin.key, entry);
+      } else {
+        // Update position (cheap) and content only if visual state changed.
+        entry.marker.position = position;
+        const isActiveItin = pin.kind === 'itinerary' && pin.index === activePin;
+        const glyphKey = `${pin.number ?? pin.kind}`;
+        if (entry.color !== pin.color || entry.glyphKey !== glyphKey || entry.isActiveItin !== isActiveItin) {
+          entry.marker.content = buildContent(pin);
+          entry.color = pin.color;
+          entry.glyphKey = glyphKey;
+          entry.isActiveItin = isActiveItin;
+        }
+        if (entry.marker.map !== map) entry.marker.map = map;
+      }
     });
-  }, [isDark, mapReady]);
 
-  // Update route data
-  useEffect(() => {
-    if (!map.current || !mapReady) return;
-    const src = map.current.getSource('route');
-    const empty = { type: 'FeatureCollection', features: [] };
-    if (src) src.setData(showRoute && routeGeoJSON ? routeGeoJSON : empty);
-  }, [mapReady, routeGeoJSON, showRoute]);
+    // Drop markers no longer in the visible list.
+    existing.forEach((entry, key) => {
+      if (!nextKeys.has(key)) {
+        if (entry.listener?.remove) entry.listener.remove();
+        entry.marker.map = null;
+        existing.delete(key);
+      }
+    });
+  }, [allVisiblePins, activePin, mapReady]);
 
-  // Update pin data
+  // Cleanup on unmount — make sure no orphaned markers stay attached to the map instance.
   useEffect(() => {
-    if (!map.current || !mapReady) return;
-    const src = map.current.getSource('pins');
-    if (src) src.setData(pinsGeoJSON);
-  }, [mapReady, pinsGeoJSON]);
-
-  // Update highlight ring (selected tabelog/saved pin)
-  useEffect(() => {
-    if (!map.current || !mapReady) return;
-    const src = map.current.getSource('highlight');
-    if (src) src.setData(highlightGeoJSON);
-  }, [mapReady, highlightGeoJSON]);
-
-  useEffect(() => {
-    if (!map.current || !mapReady) return;
-    const src = map.current.getSource('search-result');
-    if (src) src.setData(searchPinGeoJSON);
-  }, [mapReady, searchPinGeoJSON]);
+    return () => {
+      const existing = advancedMarkersRef.current;
+      existing.forEach((entry) => {
+        if (entry.listener?.remove) entry.listener.remove();
+        if (entry.marker) entry.marker.map = null;
+      });
+      existing.clear();
+    };
+  }, []);
 
   // Fit map only when day changes (not on layer/filter toggles)
   useEffect(() => {
-    if (!map.current || !mapReady) return;
+    if (!mapRef.current || !mapReady) return;
     const dayPins = itineraryPins;
     if (dayPins.length > 1) {
-      const bounds = new mapboxgl.LngLatBounds();
-      dayPins.forEach(p => bounds.extend([p.coord.longitude, p.coord.latitude]));
-      map.current.fitBounds(bounds, { padding: { top: 80, right: 60, bottom: 160, left: 60 }, duration: 1000 });
+      const bounds = new window.google.maps.LatLngBounds();
+      dayPins.forEach(p => bounds.extend({ lat: p.coord.latitude, lng: p.coord.longitude }));
+      mapRef.current.fitBounds(bounds, { padding: { top: 80, right: 60, bottom: 160, left: 60 } });
     } else if (dayPins.length === 1) {
-      map.current.flyTo({ center: [dayPins[0].coord.longitude, dayPins[0].coord.latitude], zoom: 14, duration: 1000 });
+      mapRef.current.panTo({ lat: dayPins[0].coord.latitude, lng: dayPins[0].coord.longitude });
+      mapRef.current.setZoom(14);
     } else if (day) {
       const c = getDayCenter(day);
-      map.current.flyTo({ center: [c.longitude, c.latitude], zoom: 13, duration: 1000 });
+      mapRef.current.panTo({ lat: c.latitude, lng: c.longitude });
+      mapRef.current.setZoom(13);
     }
     setActivePin(0);
     setSelectedPin(null);
     setCarouselMode('itinerary');
-  }, [selected, mapReady]);
+  }, [selected, mapReady, itineraryPins, day]);
 
   const focusPin = useCallback((idx) => {
     if (idx < 0 || idx >= carouselPins.length) return;
     setActivePin(idx);
     setCarouselMode('itinerary');
+    setSelectedSearchPin(null); // clear any active search result so the camera + card both update
     const pin = carouselPins[idx];
-    if (pin?.coord && map.current) {
-      map.current.flyTo({
-        center: [pin.coord.longitude, pin.coord.latitude],
-        zoom: 15, duration: 800,
+    if (pin?.coord && mapRef.current) {
+      const target = { lat: pin.coord.latitude, lng: pin.coord.longitude };
+      mapRef.current.panTo(target);
+      // Defer zoom so panTo's animation kicks in cleanly. Always zoom in to a per-pin level
+      // (17 ≈ block-level) when navigating between schedule items so the user can see the
+      // surroundings without the camera staying at fit-bounds.
+      requestAnimationFrame(() => {
+        if (!mapRef.current) return;
+        const z = mapRef.current.getZoom();
+        if (z == null || z < 17) mapRef.current.setZoom(17);
       });
     }
   }, [carouselPins]);
@@ -499,142 +531,170 @@ export default function MapViewComponent() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${pin.coord.latitude},${pin.coord.longitude}`, '_blank');
   };
 
-  // Calculate distance between two coordinates (in km)
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-      + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
-      * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
   useEffect(() => {
     const query = searchQuery.trim();
     if (!query) {
+      searchAbortRef.current?.abort?.();
+      lastRemoteSearchKeyRef.current = '';
       setSearchResults([]);
       setIsSearching(false);
       return;
     }
     const timeoutId = setTimeout(async () => {
       const normalized = query.toLowerCase();
-      const center = map.current?.getCenter();
-      const centerLat = center?.lat || 35.6762;
-      const centerLng = center?.lng || 139.6503;
+      const center = mapRef.current?.getCenter();
+      const centerLat = center?.lat() || 35.6762;
+      const centerLng = center?.lng() || 139.6503;
+      const cityBias = allTabelogCity.toLowerCase();
+
+      const dedupeById = (items) => {
+        const seen = new Set();
+        return items.filter((item) => {
+          const key = item.id || `${item.title}__${item.coord?.latitude}__${item.coord?.longitude}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      };
 
       // 1. Search Tabelog restaurants first (prioritize exact/partial matches)
       const restaurantMatches = searchableRestaurants
         .filter((item) => {
-          const searchText = `${item.title} ${item.subtitle}`.toLowerCase();
-          return searchText.includes(normalized);
+          return scoreSearchText(query, item.title, item.subtitle) > 0;
         })
         .map((item) => ({
           ...item,
+          quality: scoreSearchText(query, item.title, item.subtitle),
           distance: calculateDistance(centerLat, centerLng, item.coord.latitude, item.coord.longitude),
         }))
-        .sort((a, b) => a.distance - b.distance);
+        .sort((a, b) => {
+          if (b.quality !== a.quality) return b.quality - a.quality;
+          return a.distance - b.distance;
+        });
 
       // 2. Search local itinerary/saved pins
       const localMatches = searchablePins
-        .filter((item) => `${item.title} ${item.subtitle}`.toLowerCase().includes(normalized))
+        .filter((item) => scoreSearchText(query, item.title, item.subtitle) > 0)
         .map((item) => ({
           ...item,
+          quality: scoreSearchText(query, item.title, item.subtitle),
           distance: calculateDistance(centerLat, centerLng, item.coord.latitude, item.coord.longitude),
         }))
-        .sort((a, b) => a.distance - b.distance);
+        .sort((a, b) => {
+          if (b.quality !== a.quality) return b.quality - a.quality;
+          return a.distance - b.distance;
+        });
 
-      if (MAPBOX_TOKEN === 'YOUR_MAPBOX_TOKEN_HERE') {
-        // No token, return local results
-        const allResults = [...restaurantMatches, ...localMatches].slice(0, 8);
-        setSearchResults(allResults);
+      const localResults = dedupeById([...restaurantMatches, ...localMatches]).slice(0, 8);
+      setSearchResults(localResults);
+
+      if (!GOOGLE_MAPS_API_KEY) {
         return;
       }
 
+      // Avoid hammering Google when local matches are already strong enough.
+      if (localResults.length >= 5) {
+        setIsSearching(false);
+        return;
+      }
+
+      const remoteSearchKey = `${normalized}__${allTabelogCity}`;
+      if (lastRemoteSearchKeyRef.current === remoteSearchKey) {
+        setIsSearching(false);
+        return;
+      }
+
+      lastRemoteSearchKeyRef.current = remoteSearchKey;
+
       try {
+        searchAbortRef.current?.abort?.();
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
         setIsSearching(true);
-        const proximity = `&proximity=${centerLng},${centerLat}`;
-        const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?limit=15&types=poi,place,neighborhood,address,locality,region&language=en${proximity}&access_token=${MAPBOX_TOKEN}`,
-        );
-        const data = await response.json();
-        const remote = (data.features || [])
-          .map((feature) => {
-            const distance = calculateDistance(centerLat, centerLng, feature.center[1], feature.center[0]);
-            const quality = calculateMatchQuality(query, feature.text || '', feature.place_name || '');
+
+        // New Places API: google.maps.places.Place.searchByText. Replaces the deprecated
+        // PlacesService.textSearch (deprecated for new customers 2025-03-01).
+        const placesLib = await window.google.maps.importLibrary('places');
+        if (controller.signal.aborted) {
+          setIsSearching(false);
+          return;
+        }
+        const PlaceCtor = placesLib?.Place || window.google.maps.places?.Place;
+        if (!PlaceCtor?.searchByText) {
+          setIsSearching(false);
+          return;
+        }
+
+        const { places } = await PlaceCtor.searchByText({
+          textQuery: query,
+          fields: ['id', 'displayName', 'location', 'formattedAddress', 'types', 'rating', 'userRatingCount'],
+          locationBias: {
+            circle: {
+              center: { lat: centerLat, lng: centerLng },
+              radius: 50000,
+            },
+          },
+          language: 'en',
+          region: 'JP',
+          maxResultCount: 8,
+        });
+
+        if (controller.signal.aborted) {
+          setIsSearching(false);
+          return;
+        }
+
+        const remote = (places || [])
+          .filter((place) => isJapanGooglePlace(place))
+          .map((place) => {
+            const ll = getPlaceLatLng(place);
+            if (!ll) return null;
+            const distance = calculateDistance(centerLat, centerLng, ll.lat, ll.lng);
+            const quality = calculateMatchQuality(query, place);
+            const name = getPlaceName(place);
+            const address = place.formattedAddress || '';
+            const cityText = `${name} ${address}`.toLowerCase();
+            const cityBonus = cityText.includes(cityBias) ? 25 : 0;
             return {
-              id: feature.id,
-              source: 'mapbox',
-              title: feature.text || feature.place_name,
-              subtitle: feature.place_name,
-              coord: {
-                latitude: feature.center[1],
-                longitude: feature.center[0],
-              },
+              id: place.id,
+              source: 'google',
+              title: name || 'Unknown Place',
+              subtitle: address,
+              coord: { latitude: ll.lat, longitude: ll.lng },
               distance,
-              quality,
+              quality: quality + cityBonus,
             };
           })
-          // Only keep results with decent match quality (>20%) - stricter for multi-word
-          .filter((r) => r.quality > 20)
-          .sort((a, b) => a.distance - b.distance);
+          .filter(Boolean)
+          .filter((r) => r.quality > 20) // Filter out low quality matches
+          .sort((a, b) => {
+            if (b.quality !== a.quality) return b.quality - a.quality;
+            return a.distance - b.distance;
+          });
 
-        // 3. Combine: Tabelog restaurants first, then local pins, then Mapbox results
-        const allResults = [...restaurantMatches, ...localMatches, ...remote]
-          .slice(0, 8);
-
+        // 3. Combine: Tabelog restaurants first, then local pins, then Google results
+        const allResults = dedupeById([...localResults, ...remote]).slice(0, 8);
         setSearchResults(allResults);
+        setIsSearching(false);
       } catch (error) {
-        console.error('Search error:', error);
-        // Fallback to local results if API fails
-        const fallback = [...restaurantMatches, ...localMatches].slice(0, 8);
-        setSearchResults(fallback);
-      } finally {
+        if (error?.name !== 'AbortError') {
+          console.error('Search error:', error);
+          setSearchResults(localResults);
+        }
         setIsSearching(false);
       }
     }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  // Helper: Calculate match quality (0-100)
-  const calculateMatchQuality = (query, title, subtitle) => {
-    const text = `${title} ${subtitle}`.toLowerCase();
-    const q = query.toLowerCase();
-    
-    // Exact match = perfect score
-    if (text === q || text.includes(q)) return 100;
-    
-    // Check how many words from query appear in result
-    const queryWords = q.split(/\s+/).filter(w => w.length > 0);
-    if (queryWords.length === 0) return 0;
-    
-    const matchedWords = queryWords.filter(word => text.includes(word));
-    const matchPercentage = (matchedWords.length / queryWords.length) * 100;
-    
-    // For multi-word queries, require ALL words to appear (100% match)
-    if (queryWords.length > 1 && matchPercentage < 100) return 0;
-    
-    // For single word queries, allow partial matches but require higher relevance
-    if (queryWords.length === 1 && matchPercentage < 50) return 0;
-    
-    // Proximity bonus: if words appear close together
-    if (queryWords.length > 1) {
-      const firstWordPos = text.indexOf(queryWords[0]);
-      const lastWordPos = text.indexOf(queryWords[queryWords.length - 1]);
-      if (firstWordPos !== -1 && lastWordPos !== -1) {
-        const distance = lastWordPos - firstWordPos;
-        if (distance < 30) return matchPercentage + 20; // bonus for proximity
-      }
-    }
-    
-    return matchPercentage;
-  };
+    return () => {
+      clearTimeout(timeoutId);
+      searchAbortRef.current?.abort?.();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, allTabelogCity]);
 
   const handleSelectSearchResult = useCallback((result) => {
     setSearchOpen(false);
     setSearchQuery(result.title);
-    if (result.source === 'itinerary' && result.pin) {
+    if (result.source !== 'google' && result.pin) {
       if (result.pin.kind === 'itinerary') {
         setCarouselMode('itinerary');
         setSelectedPin(null);
@@ -646,12 +706,12 @@ export default function MapViewComponent() {
       }
     }
     setSelectedSearchPin(result);
-    if (map.current) {
-      map.current.flyTo({
-        center: [result.coord.longitude, result.coord.latitude],
-        zoom: 15,
-        duration: 800,
+    if (mapRef.current) {
+      mapRef.current.panTo({
+        lat: result.coord.latitude,
+        lng: result.coord.longitude,
       });
+      mapRef.current.setZoom(15);
     }
   }, [nonItinPins]);
 
@@ -665,13 +725,80 @@ export default function MapViewComponent() {
       }
     : (carouselMode === 'tabelog' ? activeNonItinPin : carouselPins[activePin]);
 
+  if (loadError) return <div>Error loading maps</div>;
+  if (!isLoaded) return <div>Loading maps...</div>;
+
   return (
     <div style={{ position: 'relative', width: '100%', height: 'calc(100dvh - 56px - env(safe-area-inset-top, 0px))', overflow: 'hidden' }}>
-      <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+      <GoogleMap
+        mapContainerStyle={{ width: '100%', height: '100%' }}
+        center={INITIAL_CENTER}
+        zoom={INITIAL_ZOOM}
+        onLoad={onMapLoad}
+        options={{
+          // mapId is required for AdvancedMarkerElement. Inline `styles` is incompatible with
+          // mapId-styled maps — styling is configured in Cloud Console against the Map ID instead.
+          mapId: RESOLVED_MAP_ID,
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: false,
+          scaleControl: false,
+          streetViewControl: false,
+          rotateControl: false,
+          fullscreenControl: false,
+        }}
+      >
+        {/* Route Polyline */}
+        {showRoute && routePath.length > 0 && (
+          <Polyline
+            path={routePath}
+            options={{
+              strokeColor: '#b91c1c',
+              strokeOpacity: 1,
+              strokeWeight: 3,
+            }}
+          />
+        )}
+
+        {/* Pins are rendered imperatively as AdvancedMarkerElement instances — see the
+            useEffect below keyed on [allVisiblePins, activePin, mapReady]. The legacy <Marker>
+            component from @react-google-maps/api uses google.maps.Marker which Google
+            deprecated 2024-02-21. */}
+
+        {/* Active-pin highlight — thin yellow ring, no fill, won't block clicks on neighboring pins */}
+        {activeNonItinPin && (
+          <Circle
+            center={{ lat: activeNonItinPin.coord.latitude, lng: activeNonItinPin.coord.longitude }}
+            radius={25}
+            options={{
+              fillOpacity: 0,
+              strokeColor: '#facc15',
+              strokeOpacity: 0.9,
+              strokeWeight: 2,
+              clickable: false,
+            }}
+          />
+        )}
+
+        {/* Search-result highlight — thin blue ring, transparent fill */}
+        {selectedSearchPin && (
+          <Circle
+            center={{ lat: selectedSearchPin.coord.latitude, lng: selectedSearchPin.coord.longitude }}
+            radius={25}
+            options={{
+              fillOpacity: 0,
+              strokeColor: '#1d4ed8',
+              strokeOpacity: 0.85,
+              strokeWeight: 2,
+              clickable: false,
+            }}
+          />
+        )}
+      </GoogleMap>
 
       {/* Day selector */}
       <div style={{ position: 'absolute', top: 12, left: 12, right: 60, zIndex: 10 }}>
-        <ScrollArea type="never">
+        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
           <Group gap={6} wrap="nowrap">
             {timeline.map(d => {
               const active = d.day === selected;
@@ -695,7 +822,7 @@ export default function MapViewComponent() {
               );
             })}
           </Group>
-        </ScrollArea>
+        </div>
       </div>
 
       {/* Layer toggles */}
@@ -1133,19 +1260,16 @@ export default function MapViewComponent() {
       )}
 
       {/* Token warning */}
-      {MAPBOX_TOKEN === 'YOUR_MAPBOX_TOKEN_HERE' && (
+      {!GOOGLE_MAPS_API_KEY && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
           background: '#fff', padding: 24, borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
           textAlign: 'center', zIndex: 20, maxWidth: 360,
         }}>
-          <Text fw={700} size="lg" mb="xs">Map needs a Mapbox token</Text>
+          <Text fw={700} size="lg" mb="xs">Map needs a Google Maps API key</Text>
           <Text size="sm" c="dimmed" mb="md">
-            Sign up free at mapbox.com, grab your token, and paste it in:
+            Set <code>VITE_GOOGLE_MAP</code> in <code>japan2026/.env</code> — get a key at console.cloud.google.com/google/maps-apis
           </Text>
-          <code style={{ fontSize: 12, background: '#f3f4f6', padding: '4px 8px', borderRadius: 4 }}>
-            shared/data/mapConfig.js
-          </code>
         </div>
       )}
     </div>
