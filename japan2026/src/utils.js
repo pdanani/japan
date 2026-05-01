@@ -378,20 +378,30 @@ export function parseTimelineCSV(rows) {
     const notes = (notesRow[col] || '').trim();
 
     // Parse schedule from time rows (row 4+)
+    // The sheet uses a 12-hour clock that wraps at noon (5:00…11:30, 12:00, 12:30, 1:00…11:30, 12:00 midnight).
+    // Toggle AM/PM whenever we enter a 12:xx slot from a non-12 hour.
     const schedule = [];
+    let halfDay = 'AM';
+    let prevHour = null;
     for (let r = 4; r < rows.length; r++) {
       const timeRaw = (rows[r][0] || '').trim();
       const activity = (rows[r][col] || '').trim();
-      if (!activity || activity === ' ') continue;
 
-      // Convert time like "5:00" to "5:00 AM"
       let time = timeRaw;
-      if (/^\d{1,2}:\d{2}$/.test(time)) {
-        const hour = parseInt(time.split(':')[0], 10);
-        const suffix = hour >= 12 && hour < 24 ? 'PM' : 'AM';
+      let timedRow = false;
+      if (/^\d{1,2}:\d{2}$/.test(timeRaw)) {
+        timedRow = true;
+        const hour = parseInt(timeRaw.split(':')[0], 10);
+        if (hour === 12 && prevHour !== 12) {
+          halfDay = halfDay === 'AM' ? 'PM' : 'AM';
+        }
         const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-        time = `${h12}:${time.split(':')[1]} ${suffix}`;
+        time = `${h12}:${timeRaw.split(':')[1]} ${halfDay}`;
+        prevHour = hour;
       }
+
+      if (!activity || activity === ' ') continue;
+      if (!timedRow) continue;
 
       const type = detectActivityType(activity);
       const item = { time, activity, type, source: 'sheet' };
