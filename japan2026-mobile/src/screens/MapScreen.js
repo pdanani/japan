@@ -15,7 +15,7 @@ if (Platform.OS !== 'web') {
 import { colors, badgeColor } from '../theme';
 import { useTheme } from '../ThemeContext';
 import Badge from '../components/Badge';
-import { timeline } from '../data/tripData';
+import { timeline as defaultTimeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import { tabelogAll as tabelogTokyoAll } from '../data/tabelogAll';
@@ -68,7 +68,8 @@ function openDirections(lat, lng, label) {
 }
 
 
-export default function MapScreen() {
+export default function MapScreen({ timeline: timelineProp }) {
+  const timeline = timelineProp || defaultTimeline;
   const { colors: tc, isDark } = useTheme();
   const mapRef = useRef(null);
   const carouselRef = useRef(null);

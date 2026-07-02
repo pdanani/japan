@@ -13,6 +13,7 @@ import NearbyRecs from './components/NearbyRecs';
 
 const MapViewComponent = lazy(() => import('./components/MapView'));
 import { SHEET_ID, initialFood, initialActivities, timeline as initialTimeline } from './data/tripData';
+import { ITINERARIES, DEFAULT_ITINERARY_ID, getItinerary } from './data/itineraries';
 import { parseTimelineCSV } from './utils';
 import './App.css';
 
@@ -33,6 +34,13 @@ export default function App() {
   const [food, setFood] = useState(initialFood);
   const [activities, setActivities] = useState(initialActivities);
   const [timelineData, setTimelineData] = useState(initialTimeline);
+  const [itineraryId, setItineraryId] = useState(() => {
+    try {
+      const stored = localStorage.getItem('itineraryId');
+      if (stored && ITINERARIES.some((it) => it.id === stored)) return stored;
+    } catch {}
+    return DEFAULT_ITINERARY_ID;
+  });
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeTab, setActiveTab] = useState('timeline');
@@ -83,13 +91,19 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 3500);
   }, []);
 
-  const sync = useCallback(async () => {
+  // Persist the chosen itinerary so it survives reloads.
+  useEffect(() => {
+    try { localStorage.setItem('itineraryId', itineraryId); } catch {}
+  }, [itineraryId]);
+
+  const sync = useCallback(async ({ silent = false } = {}) => {
     setSyncing(true);
     try {
+      const itinerary = getItinerary(itineraryId);
       const sheets = [
         { gidParam: 'gid=0', target: 'activities' },
         { gidParam: 'sheet=Food%20Menu', target: 'food' },
-        { gidParam: 'sheet=PB%20Draft%20Timeline', target: 'timeline', noHeader: true },
+        { gidParam: `gid=${itinerary.gid}`, target: 'timeline', noHeader: true },
       ];
       let ok = 0;
       for (const s of sheets) {
@@ -131,14 +145,27 @@ export default function App() {
           }
         } catch (e) { console.warn(e); }
       }
-      showToast(ok ? `Synced ${ok} sheet(s) successfully!` : 'Could not sync — sheet may not be public', ok ? 'green' : 'red');
+      if (!silent) showToast(ok ? `Synced ${ok} sheet(s) successfully!` : 'Could not sync — sheet may not be public', ok ? 'green' : 'red');
     } catch (e) {
       console.error(e);
-      showToast('Sync failed', 'red');
+      if (!silent) showToast('Sync failed', 'red');
     } finally {
       setSyncing(false);
     }
-  }, [showToast]);
+  }, [showToast, itineraryId]);
+
+  // Auto-fetch from Google Sheets on load, when the itinerary changes, every 5
+  // minutes, and when the tab regains focus — so the timeline stays current.
+  useEffect(() => {
+    sync({ silent: true });
+    const id = setInterval(() => sync({ silent: true }), 5 * 60 * 1000);
+    const onFocus = () => sync({ silent: true });
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [sync]);
 
   const mantineTheme = useMemo(() => createTheme({
     primaryColor: 'red',
@@ -218,6 +245,20 @@ export default function App() {
                     </button>
                   ))}
                   <div className="toolbar-dropdown-divider" />
+                  <div style={{ padding: '6px 12px 2px', fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', opacity: 0.55 }}>
+                    Itinerary
+                  </div>
+                  {ITINERARIES.map((it) => (
+                    <button
+                      key={it.id}
+                      className={`toolbar-dropdown-item ${itineraryId === it.id ? 'active' : ''}`}
+                      onClick={() => { setItineraryId(it.id); setMoreOpen(false); }}
+                    >
+                      <IconClock size={16} />
+                      {it.label}
+                    </button>
+                  ))}
+                  <div className="toolbar-dropdown-divider" />
                   <button
                     className="toolbar-dropdown-item"
                     onClick={() => setDarkMode(prev => !prev)}
@@ -247,7 +288,7 @@ export default function App() {
               size="lg"
               radius="xl"
               loading={syncing}
-              onClick={sync}
+              onClick={() => sync()}
               className="toolbar-sync"
             >
               <IconRefresh size={18} color="rgba(255,255,255,0.7)" />
@@ -259,7 +300,7 @@ export default function App() {
       {/* Map — full bleed */}
       {activeTab === 'map' && (
         <Suspense fallback={<Center h="80vh"><Loader color="red" /></Center>}>
-          <MapViewComponent />
+          <MapViewComponent timeline={timelineData} />
         </Suspense>
       )}
 
@@ -269,7 +310,14 @@ export default function App() {
           {activeTab === 'timeline' && (
             nearbyDay != null
               ? <NearbyRecs dayNumber={nearbyDay} onBack={() => { setNearbyDay(null); window.scrollTo({ top: 0 }); }} />
-              : <Timeline timeline={timelineData} onNearbyRecs={(day) => { setNearbyDay(day); window.scrollTo({ top: 0 }); }} />
+              : <Timeline
+                  timeline={timelineData}
+                  itineraries={ITINERARIES}
+                  itineraryId={itineraryId}
+                  onItineraryChange={setItineraryId}
+                  syncing={syncing}
+                  onNearbyRecs={(day) => { setNearbyDay(day); window.scrollTo({ top: 0 }); }}
+                />
           )}
           {activeTab === 'food' && <FoodMenu data={food} />}
           {activeTab === 'activities' && <Activities data={activities} />}

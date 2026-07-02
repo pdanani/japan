@@ -31,8 +31,12 @@ const SOURCE_CONFIG = {
   ai: { icon: 'sparkles', color: 'grape', label: 'AI' },
 };
 
-export default function TimelineScreen({ timeline: timelineProp }) {
+export default function TimelineScreen({
+  timeline: timelineProp,
+  itineraries = [], itineraryId, onItineraryChange, syncing = false,
+}) {
   const timeline = timelineProp || defaultTimeline;
+  const showPicker = itineraries.length > 1 && !!onItineraryChange;
   const navigation = useNavigation();
   const { colors: tc, isDark, toggleDark } = useTheme();
   const [selected, setSelected] = useState(1);
@@ -54,6 +58,37 @@ export default function TimelineScreen({ timeline: timelineProp }) {
           <Ionicons name={isDark ? 'sunny' : 'moon'} size={18} color={isDark ? '#facc15' : '#6b7280'} />
         </TouchableOpacity>
       </View>
+
+      {/* Itinerary picker */}
+      {showPicker && (
+        <View style={{ marginBottom: 12 }}>
+          <View style={styles.row}>
+            <Ionicons name="git-branch-outline" size={13} color={tc.textMuted} style={{ marginRight: 6 }} />
+            <Text style={[styles.pickerLabel, { color: tc.textMuted }]}>Itinerary</Text>
+            {syncing && <Text style={[styles.pickerLabel, { color: tc.textMuted, marginLeft: 6 }]}>· syncing…</Text>}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+            <View style={[styles.row, { gap: 8 }]}>
+              {itineraries.map((it) => {
+                const active = it.id === itineraryId;
+                return (
+                  <TouchableOpacity
+                    key={it.id}
+                    onPress={() => onItineraryChange(it.id)}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.itinChip,
+                      { borderColor: active ? '#b91c1c' : tc.border, backgroundColor: active ? '#b91c1c' : 'transparent' },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: active ? '#fff' : tc.text }}>{it.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      )}
 
       {/* Type legend */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
@@ -208,6 +243,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', marginTop: 2,
   },
   row: { flexDirection: 'row', alignItems: 'center' },
+  pickerLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  itinChip: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1,
+  },
   dayBtn: {
     minWidth: 78, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12,
     borderRadius: 10, borderWidth: 1.5, borderColor: colors.border,

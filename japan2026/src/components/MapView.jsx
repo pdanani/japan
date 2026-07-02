@@ -14,7 +14,7 @@ import {
   IconChevronLeft, IconChevronRight, IconRoute, IconTimeline,
   IconFilter, IconX, IconSearch,
 } from '@tabler/icons-react';
-import { timeline } from '../data/tripData';
+import { timeline as defaultTimeline } from '../data/tripData';
 import { nearbyFinds } from '../data/nearbyFinds';
 import { getPlacesForDay } from '../data/savedPlaces';
 import {
@@ -155,7 +155,9 @@ function calculateMatchQuality(query, place) {
   return 80 + matchedWords.length * 5;
 }
 
-export default function MapViewComponent() {
+export default function MapViewComponent({ timeline: timelineProp }) {
+  // Follow the selected/synced itinerary from App; fall back to the baked-in default.
+  const timeline = timelineProp || defaultTimeline;
   const isDark = document.querySelector('[data-theme="dark"]') !== null;
   const ov = {
     bg: isDark ? '#1c1c1e' : '#fff',

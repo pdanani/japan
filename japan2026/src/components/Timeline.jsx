@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Timeline as MTimeline, Title, Text, Badge, Group, Card,
-  ThemeIcon, UnstyledButton,
+  ThemeIcon, UnstyledButton, Select, Loader,
 } from '@mantine/core';
 import {
   IconMapPin, IconCalendar, IconCoffee, IconShoppingCart,
@@ -46,18 +46,40 @@ function SourceBadge({ source }) {
   );
 }
 
-export default function TimelineSection({ timeline, onNearbyRecs }) {
+export default function TimelineSection({
+  timeline, onNearbyRecs,
+  itineraries = [], itineraryId, onItineraryChange, syncing = false,
+}) {
   const [selected, setSelected] = useState(1);
 
   const day = timeline.find(d => d.day === selected);
   const tabelogList = nearbyFinds[selected] || [];
   const savedList = getPlacesForDay(selected);
   const hasNearby = tabelogList.length > 0 || savedList.length > 0;
+  const showPicker = itineraries.length > 1 && onItineraryChange;
 
   return (
     <>
-      <Title order={2} mb={4}>Trip Timeline</Title>
-      <Text c="dimmed" size="sm" mb="lg">Day-by-day itinerary</Text>
+      <Group justify="space-between" align="flex-end" mb={4} wrap="nowrap">
+        <Title order={2}>Trip Timeline</Title>
+        {showPicker && (
+          <Select
+            data={itineraries.map((it) => ({ value: it.id, label: it.label }))}
+            value={itineraryId}
+            onChange={(val) => val && onItineraryChange(val)}
+            allowDeselect={false}
+            size="xs"
+            radius="md"
+            aria-label="Choose itinerary"
+            leftSection={syncing ? <Loader size={12} /> : <IconTable size={14} />}
+            comboboxProps={{ withinPortal: true }}
+            styles={{ root: { minWidth: 150 } }}
+          />
+        )}
+      </Group>
+      <Text c="dimmed" size="sm" mb="lg">
+        Day-by-day itinerary{showPicker && itineraryId ? ` · ${itineraries.find((it) => it.id === itineraryId)?.label ?? ''}` : ''}
+      </Text>
 
       {/* Activity type legend */}
       <Group gap="xs" mb={6}>

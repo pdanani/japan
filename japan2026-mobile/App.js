@@ -1,11 +1,12 @@
-import React, { useState, useCallback } from 'react';
-import { StyleSheet, Platform } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { AppState, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { registerRootComponent } from 'expo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Papa from 'papaparse';
 
 import TimelineScreen from './src/screens/TimelineScreen';
@@ -15,6 +16,7 @@ import GroupScreen from './src/screens/GroupScreen';
 import MapScreen from './src/screens/MapScreen';
 import NearbyRecsScreen from './src/screens/NearbyRecsScreen';
 import { SHEET_ID, initialFood, initialActivities, timeline as initialTimeline } from './src/data/tripData';
+import { ITINERARIES, DEFAULT_ITINERARY_ID, getItinerary } from './src/data/itineraries';
 import { colors } from './src/theme';
 import { ThemeProvider, useTheme } from './src/ThemeContext';
 
@@ -82,15 +84,31 @@ function App() {
   const [food, setFood] = useState(initialFood);
   const [activities, setActivities] = useState(initialActivities);
   const [timelineData, setTimelineData] = useState(initialTimeline);
+  const [itineraryId, setItineraryId] = useState(DEFAULT_ITINERARY_ID);
   const [syncing, setSyncing] = useState(false);
+
+  // Load the persisted itinerary choice once on launch.
+  useEffect(() => {
+    AsyncStorage.getItem('itineraryId')
+      .then((stored) => {
+        if (stored && ITINERARIES.some((it) => it.id === stored)) setItineraryId(stored);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Persist the choice whenever it changes.
+  useEffect(() => {
+    AsyncStorage.setItem('itineraryId', itineraryId).catch(() => {});
+  }, [itineraryId]);
 
   const sync = useCallback(async () => {
     setSyncing(true);
     try {
+      const itinerary = getItinerary(itineraryId);
       const sheets = [
         { gidParam: 'gid=0', target: 'activities' },
         { gidParam: 'sheet=Food%20Menu', target: 'food' },
-        { gidParam: 'sheet=PB%20Draft%20Timeline', target: 'timeline', noHeader: true },
+        { gidParam: `gid=${itinerary.gid}`, target: 'timeline', noHeader: true },
       ];
       for (const s of sheets) {
         try {
@@ -135,7 +153,21 @@ function App() {
     } finally {
       setSyncing(false);
     }
-  }, []);
+  }, [itineraryId]);
+
+  // Auto-fetch the latest itinerary from Google Sheets on launch, refresh
+  // periodically, and re-sync whenever the app returns to the foreground.
+  useEffect(() => {
+    sync();
+    const id = setInterval(sync, 5 * 60 * 1000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
+    });
+    return () => {
+      clearInterval(id);
+      subscription.remove();
+    };
+  }, [sync]);
 
   function TabsScreen() {
     const { colors: themeColors, isDark } = useTheme();
@@ -160,9 +192,20 @@ function App() {
         })}
       >
         <Tab.Screen name="Timeline">
-          {(props) => <TimelineScreen {...props} timeline={timelineData} />}
+          {(props) => (
+            <TimelineScreen
+              {...props}
+              timeline={timelineData}
+              itineraries={ITINERARIES}
+              itineraryId={itineraryId}
+              onItineraryChange={setItineraryId}
+              syncing={syncing}
+            />
+          )}
         </Tab.Screen>
-        <Tab.Screen name="Map" component={MapScreen} />
+        <Tab.Screen name="Map">
+          {() => <MapScreen timeline={timelineData} />}
+        </Tab.Screen>
         <Tab.Screen name="Food">
           {() => <FoodScreen data={food} />}
         </Tab.Screen>

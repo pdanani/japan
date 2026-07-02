@@ -53,6 +53,11 @@ function jitter(name) {
 }
 
 import { RESTAURANT_COORDS, ITINERARY_COORDS } from './restaurantCoords.js';
+import { ITINERARY_GEOCODED } from './itineraryGeocoded.js';
+
+// Hand-curated ITINERARY_COORDS plus the Google-geocoded itinerary places.
+// Curated entries win on key collision (listed last). See CLAUDE.md.
+const ALL_ITINERARY_COORDS = { ...ITINERARY_GEOCODED, ...ITINERARY_COORDS };
 
 // Try to resolve coordinates for a schedule item
 // Priority: 1) real coords from lookup, 2) area coords with jitter fallback
@@ -60,7 +65,7 @@ export function getScheduleCoord(item, dayLocation) {
   const activity = item.activity || '';
 
   // Check real itinerary coords first
-  for (const [key, coord] of Object.entries(ITINERARY_COORDS)) {
+  for (const [key, coord] of Object.entries(ALL_ITINERARY_COORDS)) {
     if (activity.toLowerCase().includes(key.toLowerCase())) {
       return { latitude: coord[0], longitude: coord[1] };
     }
