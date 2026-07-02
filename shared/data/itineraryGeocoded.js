@@ -71,7 +71,7 @@ export const ITINERARY_GEOCODED = {
   'Yoridokoro': [35.732604, 139.705017],
   'coffee mameya': [35.668368, 139.710888],
   'little nap coffee': [35.672094, 139.690593],
-  'isetan kyoto station': [36.204824, 138.252924],
+  'isetan kyoto station': [34.985865, 135.756999],
   'philosopher\'s path': [35.021453, 135.794295],
   'Komachi': [35.321655, 139.552455],
   'Satou': [35.703964, 139.579024],
