@@ -33,7 +33,8 @@ jobs:
         run: npm run build
         working-directory: japan2026
         env:
-          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
+          VITE_GOOGLE_MAP: ${{ secrets.VITE_GOOGLE_MAP }}
+          VITE_GOOGLE_MAP_ID: ${{ secrets.VITE_GOOGLE_MAP_ID }}
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
